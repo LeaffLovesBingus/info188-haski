@@ -47,6 +47,7 @@ data InputState = InputState {
     keyA :: Bool,
     keyS :: Bool,
     keyD :: Bool,
+    keyB :: Bool,
     mousePos :: Position,
     mouseClick :: Bool
 } deriving (Show)
@@ -74,13 +75,16 @@ screenHeight :: Int
 screenHeight = 720
 
 projectileSpeed :: Float
-projectileSpeed = 1000
+projectileSpeed = 800
 
 projectileLifetime :: Float
-projectileLifetime = 3
+projectileLifetime = 1.5
 
 playerBaseSpeed :: Float
 playerBaseSpeed = 350
+
+playerSprintSpeed :: Float
+playerSprintSpeed = 500
 
 playerBaseHealth :: Int
 playerBaseHealth = 100

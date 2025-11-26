@@ -20,7 +20,7 @@ initialGameState = GameState {
     },
     camera = Camera { cameraPos = (0, 0) },
     projectiles = [],
-    inputState = InputState False False False False (0, 0) False,
+    inputState = InputState False False False False False (0, 0) False,
     tileMap = generateTileMap 50 50 42,
     randomSeed = 42
 }
@@ -58,12 +58,23 @@ updatePlayerMovement dt = do
         len = sqrt (dx*dx + dy*dy) -- √dx² + dy²
         (ndx, ndy) = if len > 0 then (dx/len, dy/len) else (0, 0)
 
+        isMoving = dx /= 0 || dy /= 0
+
         -- Calcular la nueva posición
-        speed = playerSpeed p
+        baseSpeed = playerSpeed p
+        speed = if keyB input then playerSprintSpeed else baseSpeed
         (x, y) = playerPos p
-        newPos = (x + ndx * speed * dt, y + ndy * speed * dt)
+
+        newPos = if isMoving
+                then (x + ndx * speed * dt, y + ndy * speed * dt)
+                else playerPos p
+
+        newVel = if isMoving
+                then (ndx * speed, ndy * speed)
+                else (0, 0)
 
         newDir
+            | not isMoving = playerDir p
             | dx > 0 = DirRight
             | dx < 0 = DirLeft
             | dy > 0 = DirUp
@@ -81,7 +92,7 @@ updatePlayerMovement dt = do
 
         newPlayer = p {
             playerPos = newPos,
-            playerVel = (ndx * speed, ndy * speed),
+            playerVel = newVel,
             playerDir = newDir,
             playerFrame = newFrame,
             playerAnimTime = newt
@@ -173,6 +184,8 @@ handleInputEvent event = do
         EventKey (Char 's') Up _ _ -> put gs { inputState = input { keyS = False } }
         EventKey (Char 'd') Down _ _ -> put gs { inputState = input { keyD = True } }
         EventKey (Char 'd') Up _ _ -> put gs { inputState = input { keyD = False } }
+        EventKey (Char 'b') Down _ _ -> put gs { inputState = input { keyB = True } }
+        EventKey (Char 'b') Up _ _ -> put gs { inputState = input { keyB = False } }
         EventKey (MouseButton LeftButton) Down _ pos -> 
             put gs { inputState = input { mouseClick = True, mousePos = pos } }
         EventMotion pos ->
