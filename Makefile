@@ -1,23 +1,33 @@
-BIN_DIR := bin
+.PHONY: all build run clean
 
-# Busca todos los archivos .hs dentro de src/
-SRC := $(wildcard *.hs)
+# Configuración
+GHC = ghc
+GHCFLAGS = -O2 -threaded -outputdir bin -o bin/juego -package mtl -package gloss -package array
+SOURCES = main.hs types.hs logic.hs render.hs
+EXECUTABLE = bin/juego
 
-TARGET := $(BIN_DIR)/juego
-GHC_FLAGS := -O2 -package gloss -package gloss-juicy
+# Regla por defecto
+all: build
 
-.PHONY: all clean run dirs
+# Crear el directorio bin si no existe
+bin:
+	@mkdir -p bin
 
-all: dirs $(TARGET)
+# Compilar el juego
+build: bin $(SOURCES)
+	$(GHC) $(GHCFLAGS) --make main.hs
 
-dirs:
-	mkdir -p $(BIN_DIR)
+# Ejecutar el juego
+run: build
+	./$(EXECUTABLE)
 
-$(TARGET): $(SRC)
-	ghc $(GHC_FLAGS) -outputdir $(BIN_DIR) -o $(TARGET) $(SRC)
-
-run: all
-	./$(TARGET)
-
+# Limpiar archivos generados
 clean:
-	rm -rf $(BIN_DIR)/*
+	rm -rf bin
+
+# Instalar dependencias (requiere cabal)
+install-deps:
+	cabal install --lib gloss
+	cabal install --lib mtl
+	cabal install --lib gloss-juicy
+	cabal install --lib JuicyPixels

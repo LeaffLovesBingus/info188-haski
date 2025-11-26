@@ -1,42 +1,27 @@
+module Main where
+
 import Graphics.Gloss
 import Graphics.Gloss.Interface.Pure.Game
-import Graphics.Gloss.Juicy (loadJuicyPNG)
+import Control.Monad.State
 
-
-window :: Display
-window = InWindow "Haski" (1280, 720) (100, 100)
-
-background :: Color
-background = black
-
-fps :: Int
-fps = 60
-
-data World = World
-    { picture :: Picture  
-    }
+import Types
+import Logic
+import Render
 
 
 main :: IO ()
-main = do
-    maybeImg <- loadJuicyPNG "assets/ojohohojojohohjoohohhojoohojoh.png"
-    let img = case maybeImg of
-                Just p  -> p
-                Nothing -> Color red (Text "Error vro")
-    play
-        window
-        background
-        fps
-        (World img)
-        render
+main = play
+        (InWindow "Haski" (screenWidth, screenHeight) (100, 100))
+        (makeColor 0.32 0.33 0.05 1)
+        60 -- fps
+        initialGameState
+        renderGame
         handleEvent
-        update
+        updateGameWrapper
 
-render :: World -> Picture
-render w = Translate 0 0 $ Scale 0.5 0.5 (picture w)
 
-handleEvent :: Event -> World -> World
-handleEvent _ w = w
+handleEvent :: Event -> GameState -> GameState
+handleEvent event gs = execState (handleInputEvent event) gs
 
-update :: Float -> World -> World
-update _ w = w
+updateGameWrapper :: Float -> GameState -> GameState
+updateGameWrapper dt gs = execState (updateGame dt) gs
