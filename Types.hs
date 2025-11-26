@@ -60,6 +60,7 @@ data GameState = GameState {
     projectiles :: [Projectile],
     inputState :: InputState,
     tileMap :: [[Int]],
+    collisionMap :: [[Bool]], -- <-- nueva capa de colisiones
     randomSeed :: Int
 } deriving (Show)
 

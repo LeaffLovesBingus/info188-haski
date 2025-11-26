@@ -2,8 +2,8 @@
 
 # Configuración
 GHC = ghc
-GHCFLAGS = -O2 -threaded -outputdir bin -o bin/juego -package mtl -package gloss -package array
-SOURCES = main.hs types.hs logic.hs render.hs assets.hs
+GHCFLAGS = -O2 -threaded -outputdir bin -o bin/juego -package mtl -package gloss -package array -package aeson -package bytestring -package scientific -package vector -package unordered-containers -package text
+SOURCES = main.hs Types.hs Logic.hs Render.hs Assets.hs MapLoader.hs
 EXECUTABLE = bin/juego
 
 # Regla por defecto

@@ -75,3 +75,23 @@ playerFrames = unsafePerformIO $ do
 
     return (Array.array ((DirDown, Idle, 0), (DirLeft, Walk, 3)) list)
 {-# NOINLINE playerFrames #-}
+
+
+-- Nueva: cargar un tileset (.png) y devolver la lista de tiles (Pictures).
+-- No sustituye nada existente: es una función utilitaria adicional.
+loadTileset :: FilePath -> Int -> Int -> IO [Picture]
+loadTileset path tileW tileH = do
+    eimg <- readImage path
+    case eimg of
+        Left _ -> return []
+        Right dyn -> do
+            let img = convertRGBA8 dyn
+                iw = imageWidth img
+                ih = imageHeight img
+                cols = iw `div` tileW
+                rows = ih `div` tileH
+                makeTile col row =
+                    let cropped = generateImage (\x y -> pixelAt img (col*tileW + x) (row*tileH + y)) tileW tileH
+                    in fromImageRGBA8 (cropped :: Image PixelRGBA8)
+                pics = [ makeTile c r | r <- [0..rows-1], c <- [0..cols-1] ]
+            return pics

@@ -4,11 +4,12 @@ import Types
 import Control.Monad.State
 import Control.Monad (when)
 import Graphics.Gloss.Interface.Pure.Game
+import MapLoader (loadMapFromJSON) -- (no obligatorio aquí, pero initialGameState ahora toma argumentos)
 
 
--- Estado Inicial
-initialGameState :: GameState
-initialGameState = GameState {
+-- Estado Inicial: ahora recibe tilemap y collision map
+initialGameState :: [[Int]] -> [[Bool]] -> GameState
+initialGameState tiles collisions = GameState {
     player = Player {
         playerPos = spawnAtTile 25 25, -- Centro del mapa (por ahora)
         playerVel = (0, 0),
@@ -21,7 +22,8 @@ initialGameState = GameState {
     camera = Camera { cameraPos = (0, 0) },
     projectiles = [],
     inputState = InputState False False False False False (0, 0) False,
-    tileMap = generateTileMap 50 50 42,
+    tileMap = tiles,
+    collisionMap = collisions,
     randomSeed = 42
 }
 

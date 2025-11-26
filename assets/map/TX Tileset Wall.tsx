@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <tileset version="1.10" tiledversion="1.11.2" name="TX Tileset Wall" tilewidth="32" tileheight="32" tilecount="256" columns="16">
- <image source="../../Users/clayt/Downloads/Pixel Art Top Down - Basic v1.2.2/Texture/TX Tileset Wall.png" width="512" height="512"/>
+ <image source="../Texture/TX Tileset Wall.png" width="512" height="512"/>
  <tile id="17">
   <objectgroup draworder="index" id="2">
    <object id="1" x="0" y="0" width="8.12258" height="32"/>
