@@ -1,12 +1,19 @@
 module Types where
 
 import Graphics.Gloss
+import Data.Ix (Ix)
+
 
 -- Tipos básicos
 type Position = (Float, Float)
 type Velocity = (Float, Float)
 type TileCoord = (Int, Int)
 
+data Direction = DirDown | DirRight | DirUp | DirLeft 
+    deriving (Eq, Ord, Show, Ix, Bounded)
+
+data AnimType = Idle | Walk 
+    deriving (Eq, Ord, Show, Ix, Bounded)
 
 -- Proyectil
 data Projectile = Projectile {
@@ -21,7 +28,10 @@ data Player = Player {
     playerPos :: Position,
     playerVel :: Velocity,
     playerHealth :: Int,
-    playerSpeed :: Float
+    playerSpeed :: Float,
+    playerDir :: Direction,
+    playerFrame :: Int,
+    playerAnimTime :: Float
 } deriving (Show)
 
 
