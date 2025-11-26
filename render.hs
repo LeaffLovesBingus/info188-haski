@@ -21,6 +21,23 @@ tilesetBackground = unsafePerformIO $ do
 {-# NOINLINE tilesetBackground #-}
 
 
+-- Cargar sprite de flecha
+arrowImage :: Maybe (Image PixelRGBA8)
+arrowImage = unsafePerformIO $ do
+    result <- readImage "assets/entidades/flecha.png"
+    return $ case result of
+        Left _ -> Nothing
+        Right dynImg -> Just (convertRGBA8 dynImg)
+{-# NOINLINE arrowImage #-}
+
+
+arrowPicture :: Picture
+arrowPicture = 
+    case arrowImage of
+        Just img -> fromImageRGBA8 img
+        Nothing -> color red (circleSolid 4)
+
+
 -- Cache de tiles pre-renderizados
 tileCache :: Array.Array Int Picture
 tileCache = unsafePerformIO $ do
@@ -140,9 +157,19 @@ renderProjectiles gs =
 
         renderProj proj = 
             let (px, py) = projPos proj
+                (vx, vy) = projVel proj
+
+                -- Posición relativa a la cámara
                 screenX = px - camX
                 screenY = py - camY
-            in translate screenX screenY
-                $ color white
-                $ circleSolid 4
+
+                -- Ángulo de la flecha
+                angleRad = atan2 vy vx
+                angleDeg = angleRad * 180 / pi
+
+            in translate screenX screenY $
+                rotate (-angleDeg) $
+                scale 1.5 1.5 $
+                arrowPicture
+
     in pictures (map renderProj projs)
