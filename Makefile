@@ -3,7 +3,7 @@
 # Configuración
 GHC = ghc
 GHCFLAGS = -O2 -threaded -outputdir bin -o bin/juego -package mtl -package gloss -package array
-SOURCES = main.hs types.hs logic.hs render.hs
+SOURCES = main.hs types.hs logic.hs render.hs assets.hs
 EXECUTABLE = bin/juego
 
 # Regla por defecto

@@ -13,11 +13,14 @@ initialGameState = GameState {
         playerPos = spawnAtTile 25 25, -- Centro del mapa (por ahora)
         playerVel = (0, 0),
         playerHealth = playerBaseHealth,
-        playerSpeed = playerBaseSpeed
+        playerSpeed = playerBaseSpeed,
+        playerDir = DirDown,
+        playerFrame = 0,
+        playerAnimTime = 0
     },
     camera = Camera { cameraPos = (0, 0) },
     projectiles = [],
-    inputState = InputState False False False False (0, 0) False,
+    inputState = InputState False False False False False (0, 0) False,
     tileMap = generateTileMap 50 50 42,
     randomSeed = 42
 }
@@ -55,13 +58,46 @@ updatePlayerMovement dt = do
         len = sqrt (dx*dx + dy*dy) -- √dx² + dy²
         (ndx, ndy) = if len > 0 then (dx/len, dy/len) else (0, 0)
 
-        -- Calcular la nueva posición
-        speed = playerSpeed p
-        newX = fst (playerPos p) + ndx * speed * dt
-        newY = snd (playerPos p) + ndy * speed * dt
+        isMoving = dx /= 0 || dy /= 0
 
-        -- Nuevo jugador
-        newPlayer = p { playerPos = (newX, newY) }
+        -- Calcular la nueva posición
+        baseSpeed = playerSpeed p
+        speed = if keyB input then playerSprintSpeed else baseSpeed
+        (x, y) = playerPos p
+
+        newPos = if isMoving
+                then (x + ndx * speed * dt, y + ndy * speed * dt)
+                else playerPos p
+
+        newVel = if isMoving
+                then (ndx * speed, ndy * speed)
+                else (0, 0)
+
+        newDir
+            | not isMoving = playerDir p
+            | dx > 0 = DirRight
+            | dx < 0 = DirLeft
+            | dy > 0 = DirUp
+            | dy < 0 = DirDown
+            | otherwise = playerDir p
+
+        -- Animación
+        animType = if dx /= 0 || dy /= 0 then Walk else Idle
+        frameCount = if animType == Idle then 2 else 4
+
+        t = playerAnimTime p + dt
+        (newFrame, newt) =
+            if t > 0.15 then ((playerFrame p + 1) `mod` frameCount, 0)
+            else (playerFrame p, t)
+
+        newPlayer = p {
+            playerPos = newPos,
+            playerVel = newVel,
+            playerDir = newDir,
+            playerFrame = newFrame,
+            playerAnimTime = newt
+        }
+
     put gs { player = newPlayer }
 
 
@@ -148,6 +184,8 @@ handleInputEvent event = do
         EventKey (Char 's') Up _ _ -> put gs { inputState = input { keyS = False } }
         EventKey (Char 'd') Down _ _ -> put gs { inputState = input { keyD = True } }
         EventKey (Char 'd') Up _ _ -> put gs { inputState = input { keyD = False } }
+        EventKey (Char 'b') Down _ _ -> put gs { inputState = input { keyB = True } }
+        EventKey (Char 'b') Up _ _ -> put gs { inputState = input { keyB = False } }
         EventKey (MouseButton LeftButton) Down _ pos -> 
             put gs { inputState = input { mouseClick = True, mousePos = pos } }
         EventMotion pos ->

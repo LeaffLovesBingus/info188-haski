@@ -1,6 +1,7 @@
 module Render where
 
 import Types
+import Assets
 import Graphics.Gloss
 import Graphics.Gloss.Juicy
 import Codec.Picture
@@ -36,6 +37,23 @@ arrowPicture =
     case arrowImage of
         Just img -> fromImageRGBA8 img
         Nothing -> color red (circleSolid 4)
+
+
+-- Crosshair personalizado
+crosshairImage :: Maybe (Image PixelRGBA8)
+crosshairImage = unsafePerformIO $ do
+    result <- readImage "assets/crosshair.png"
+    return $ case result of
+        Left _ -> Nothing
+        Right dynImg -> Just (convertRGBA8 dynImg)
+{-# NOINLINE crosshairImage #-}
+
+
+crosshairPicture :: Picture
+crosshairPicture = 
+  case crosshairImage of
+    Just img -> fromImageRGBA8 img
+    Nothing -> Blank
 
 
 -- Cache de tiles pre-renderizados
@@ -84,6 +102,7 @@ renderGame gs = pictures
     [ renderBackground gs
     , renderPlayer gs
     , renderProjectiles gs
+    , renderCursor gs
     ]
 
 
@@ -142,9 +161,27 @@ renderTile tiles x y camX camY =
 renderPlayer :: GameState -> Picture
 renderPlayer gs = 
     let p = player gs
-        -- El jugador siempre está en el centro de la pantalla ya que la cámara lo sigue
-    in color (makeColor 0 0.8 1 1)
-        $ circleSolid 16
+        cam = cameraPos (camera gs)
+        (px, py) = playerPos p
+        screenX = px - fst cam 
+        screenY = py - snd cam 
+
+        -- Determinar la animación en base a la velocidad
+        (vx, vy) = playerVel p
+        isMoving = vx /= 0 || vy /= 0
+        anim = if isMoving then Walk else Idle 
+
+        -- Asegurarse de que el frame está en rango
+        dir = playerDir p
+        frame = playerFrame p
+        maxFrame = if anim == Idle then 1 else 3
+        safeFrame = frame `mod` (maxFrame + 1)
+
+        framePic = playerFrames Array.! (dir, anim, safeFrame)
+
+    in translate screenX screenY 
+        $ scale 3.0 3.0
+        $ framePic
 
 
 -- Renderizxar proyectiles
@@ -173,3 +210,12 @@ renderProjectiles gs =
                 arrowPicture
 
     in pictures (map renderProj projs)
+
+
+renderCursor :: GameState -> Picture
+renderCursor gs =
+    let mPos = mousePos (inputState gs)
+        (mx, my) = mPos
+    in translate mx my 
+        $ scale 0.3 0.3
+        $ crosshairPicture
