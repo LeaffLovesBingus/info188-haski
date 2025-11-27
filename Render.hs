@@ -2,22 +2,20 @@ module Render where
 
 import Types
 import Assets
+import MapLoader (loadMapFromJSON, TilesetInfo, TileLayer, CollisionShape(..))
 import Graphics.Gloss
 import Graphics.Gloss.Juicy
 import Codec.Picture
 import Codec.Picture.Types
 import System.IO.Unsafe (unsafePerformIO)
-import Data.Maybe (fromMaybe)
-import qualified Data.Array as Array
-import Control.Exception (try, IOException)   -- agregado
-
-
--- Añadidos
-import MapLoader (loadMapFromJSON, TilesetInfo, TileLayer) -- ahora también importo los tipos exportados
-import System.FilePath (normalise)
 import Control.Exception (try, IOException)
+import System.FilePath (normalise)
+import qualified Data.Array as Array
+import qualified Data.Map as Map
+import Data.Maybe (fromMaybe)
 import Data.List (sortBy)
 import Data.Ord (comparing)
+import Data.Bits ((.&.))
 
 -- Cache de capas (tile layers) leído desde el JSON (unsafePerformIO para no cambiar Types)
 layersCache :: [TileLayer]
@@ -156,7 +154,84 @@ renderGame gs = pictures
     , renderPlayer gs
     , renderProjectiles gs
     , renderCursor gs
+    -- , renderDebugCollisions gs  -- Debug: descomentar para ver cajas de colisión
     ]
+
+
+-- DEBUG: Renderizar cajas de colisión visibles
+renderDebugCollisions :: GameState -> Picture
+renderDebugCollisions gs =
+    let cam = cameraPos (camera gs)
+        camX = fst cam
+        camY = snd cam
+        (px, py) = playerPos (player gs)
+        h = playerCollisionHalfSize
+        
+        layers = allLayers gs
+        firstLayer = if null layers then [] else head layers
+        mapH = length firstLayer
+        
+        shapesMap = collisionShapes gs
+        
+        -- Dibujar caja del jugador (verde)
+        playerBoxPic = translate (px - camX) (py - camY) $
+                       color (makeColor 0 1 0 0.5) $
+                       rectangleWire (2 * h) (2 * h)
+        
+        -- Convertir shape a AABB (misma lógica que Logic.hs)
+        -- IMPORTANTE: Escalar de 32x32 a 64x64
+        shapeScale :: Float
+        shapeScale = tileSize / 32.0
+        
+        shapeToWorldAABB col row (CRect sx sy sw sh) =
+            let sx' = sx * shapeScale
+                sy' = sy * shapeScale
+                sw' = sw * shapeScale
+                sh' = sh * shapeScale
+                tileX = fromIntegral col * tileSize
+                tileY = fromIntegral (mapH - 1 - row) * tileSize
+                worldX = tileX + sx'
+                worldY = tileY + (tileSize - sy' - sh')
+            in (worldX, worldY, sw', sh')
+        shapeToWorldAABB col row (CPoly pts) =
+            let scaledPts = map (\(px, py) -> (px * shapeScale, py * shapeScale)) pts
+                xs = map fst scaledPts
+                ys = map snd scaledPts
+                minx = minimum xs
+                maxx = maximum xs
+                miny = minimum ys
+                maxy = maximum ys
+                tileX = fromIntegral col * tileSize
+                tileY = fromIntegral (mapH - 1 - row) * tileSize
+                worldY = tileY + (tileSize - maxy)
+            in (tileX + minx, worldY, maxx - minx, maxy - miny)
+        
+        -- Rango visible
+        visibleCols = [floor ((px - 200) / tileSize) .. ceiling ((px + 200) / tileSize)]
+        visibleRows = [0 .. mapH - 1]
+        
+        normalizeGid gid = gid .&. 0x1FFFFFFF
+        
+        -- Dibujar todas las collision shapes visibles
+        collisionPics = 
+            [ translate (bx + bw/2 - camX) (by + bh/2 - camY) $
+              color (makeColor 1 0 0 0.3) $
+              rectangleSolid bw bh
+            | layer <- layers
+            , row <- visibleRows
+            , row < length layer
+            , col <- visibleCols  
+            , col >= 0 && col < length (layer !! row)
+            , let rawGid = (layer !! row) !! col
+            , let gid = normalizeGid rawGid
+            , gid > 0
+            , Just shapes <- [Map.lookup gid shapesMap]
+            , shape <- shapes
+            , let (bx, by, bw, bh) = shapeToWorldAABB col row shape
+            , bw > 0.5 && bh > 0.5
+            ]
+        
+    in pictures (playerBoxPic : collisionPics)
 
 
 -- Renderizar el fondo con tiles (AHORA dibuja todas las tile layers en orden)
@@ -214,8 +289,10 @@ renderTile tiles x y camX camY =
     let mapH = length tiles
 
         -- convertir índice de fila (y, con 0 = top) a coordenada mundo (0 = bottom)
-        worldX = fromIntegral x * tileSize
-        worldY = fromIntegral (mapH - 1 - y) * tileSize
+        -- El tile se posiciona en su esquina bottom-left, pero Gloss centra el sprite
+        -- Así que añadimos tileSize/2 para que el centro del sprite coincida con el centro del tile
+        worldX = fromIntegral x * tileSize + tileSize / 2
+        worldY = fromIntegral (mapH - 1 - y) * tileSize + tileSize / 2
 
         -- Posición en pantalla relativa a la cámara
         screenX = worldX - camX

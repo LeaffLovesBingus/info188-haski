@@ -1,4 +1,11 @@
-module MapLoader (loadMapFromJSON, chunksOf, TilesetInfo, TileLayer) where
+module MapLoader (
+    loadMapFromJSON,
+    chunksOf,
+    TilesetInfo,
+    TileLayer,
+    CollisionShape(..),
+    loadGlobalCollisionShapesFromMap
+) where
 
 import qualified Data.ByteString.Lazy as B
 import qualified Data.Text as T
@@ -8,178 +15,256 @@ import qualified Data.Aeson.KeyMap as KM
 import qualified Data.Aeson.Key as K
 import qualified Data.Vector as V
 import Data.Scientific (toBoundedInteger)
-import Data.Maybe (fromMaybe, listToMaybe, catMaybes)
+import Data.Maybe (fromMaybe, mapMaybe, catMaybes)
 import System.FilePath ((</>), takeDirectory, normalise)
 import Control.Monad (forM)
+import qualified Data.Map.Strict as Map
+import Text.Read (readMaybe)
 import Control.Exception (try, IOException)
-import Codec.Picture (readImage, convertRGBA8, DynamicImage)
-import Codec.Picture.Types (Image, imageWidth)
 
-type TilesetInfo = (Int, FilePath, Int, Int, Int) -- (firstgid, imagePath, tilewidth, tileheight, columns)
-type TileLayer = (String, [[Int]])
+-- Tipos
+type TilesetInfo = (Int, String, Int, Int, Int)  -- (firstgid, imagePath, tileW, tileH, columns)
+type TileLayer = (String, [[Int]])                -- (layerName, tileData)
 
--- Cargar mapa desde JSON (formato de Tiled)
--- Devuelve (tilesets, tileLayers, collisionMap)
-loadMapFromJSON :: FilePath -> IO ([TilesetInfo], [TileLayer], [[Bool]])
-loadMapFromJSON path = do
-    bs <- B.readFile path
-    case decode bs :: Maybe Value of
-        Nothing -> error $ "No se pudo parsear JSON: " ++ path
-        Just (Object root) -> do
-            let baseDir = takeDirectory path
+-- Forma de colisión: rectángulo o polígono
+data CollisionShape = CRect { cx :: Float, cy :: Float, cwidth :: Float, cheight :: Float }
+                    | CPoly { cpoints :: [(Float, Float)] }
+                    deriving (Show, Eq)
 
-                tilesetsVal = KM.lookup (K.fromString "tilesets") root
-                tilesetsArr = case tilesetsVal of
-                                Just (Array a) -> V.toList a
-                                _ -> []
-
-                -- parse a tileset Value, handling external .tsx
-                parseTilesetVal :: Value -> IO (Maybe TilesetInfo)
-                parseTilesetVal (Object o) = do
-                    let firstgid = case KM.lookup (K.fromString "firstgid") o of
-                                    Just (Number n) -> fromMaybe (0 :: Int) (toBoundedInteger n :: Maybe Int)
-                                    _ -> 0
-                        -- try to get direct image/tile sizes from JSON tileset (may be absent when source is used)
-                        mImage = case KM.lookup (K.fromString "image") o of
-                                    Just (String t) -> Just (T.unpack t)
-                                    _ -> Nothing
-                        mTileW = case KM.lookup (K.fromString "tilewidth") o of
-                                    Just (Number n) -> fromMaybe (0 :: Int) (toBoundedInteger n :: Maybe Int)
-                                    _ -> 0
-                        mTileH = case KM.lookup (K.fromString "tileheight") o of
-                                    Just (Number n) -> fromMaybe (0 :: Int) (toBoundedInteger n :: Maybe Int)
-                                    _ -> 0
-                        mCols = case KM.lookup (K.fromString "columns") o of
-                                    Just (Number n) -> fromMaybe (0 :: Int) (toBoundedInteger n :: Maybe Int)
-                                    _ -> 0
-                        mSource = case KM.lookup (K.fromString "source") o of
-                                    Just (String t) -> Just (T.unpack t)
-                                    _ -> Nothing
-                    case (mImage, mSource) of
-                        (Just img, _) -> do
-                            -- image provided inline in JSON tileset
-                            let imgPath = normalise (baseDir </> img)
-                            let cols = if mCols > 0 then mCols else 0
-                            return $ Just (firstgid, imgPath, mTileW, mTileH, cols)
-                        (Nothing, Just src) -> do
-                            let tsxPath = normalise (baseDir </> src)
-                            mmeta <- parseTSX tsxPath
-                            case mmeta of
-                                Just (imgRel, tw, th, cols) -> do
-                                    let imgPath = normalise (takeDirectory tsxPath </> imgRel)
-                                    return $ Just (firstgid, imgPath, tw, th, cols)
-                                Nothing -> return Nothing
-                        _ -> return Nothing
-                parseTilesetVal _ = return Nothing
-
-            tilesets <- fmap catMaybes $ forM tilesetsArr $ \v -> parseTilesetVal v
-
-            -- parse layers: collect all tilelayers in order
-            let layersVal = KM.lookup (K.fromString "layers") root
-                layersArr = case layersVal of
-                              Just (Array a) -> V.toList a
-                              _ -> []
-                isTileLayer (Object o) = case KM.lookup (K.fromString "type") o of
-                    Just (String t) -> t == T.pack "tilelayer"
-                    _ -> False
-                isTileLayer _ = False
-
-                extractTileLayer (Object o) =
-                    let name = case KM.lookup (K.fromString "name") o of
-                                Just (String n) -> T.unpack n
-                                _ -> ""
-                        dataArr = case KM.lookup (K.fromString "data") o of
-                                    Just (Array a) -> V.toList a
-                                    _ -> []
-                        ints = map (\v -> case v of
-                                    Number n -> fromMaybe (0 :: Int) (toBoundedInteger n :: Maybe Int)
-                                    _ -> 0) dataArr
-                        width = case KM.lookup (K.fromString "width") o of
-                                    Just (Number n) -> fromMaybe (0 :: Int) (toBoundedInteger n :: Maybe Int)
-                                    _ -> 0
-                        rows = if width <= 0 then [ints] else chunksOf width ints
-                    in (name, rows)
-                extractTileLayer _ = ("", [])
-
-                tileLayers = [ extractTileLayer l | l@(Object _) <- layersArr, isTileLayer l ]
-
-                -- buscar capa de colisiones por nombre (Colisiones, Collision, etc.)
-                collisionNames = map T.pack ["Colisiones","Collision","Collisions","Colicion","Colision"]
-                findCollision = listToMaybe [ l | l@(Object o) <- layersArr
-                                                , let nm = case KM.lookup (K.fromString "name") o of
-                                                              Just (String t) -> t
-                                                              _ -> T.empty
-                                                , nm `elem` collisionNames
-                                                ]
-                extractCollision (Object o) =
-                    let dataArr = case KM.lookup (K.fromString "data") o of
-                                    Just (Array a) -> V.toList a
-                                    _ -> []
-                        ints = map (\v -> case v of
-                                    Number n -> fromMaybe (0 :: Int) (toBoundedInteger n :: Maybe Int)
-                                    _ -> 0) dataArr
-                        width = case KM.lookup (K.fromString "width") o of
-                                    Just (Number n) -> fromMaybe (0 :: Int) (toBoundedInteger n :: Maybe Int)
-                                    _ -> 0
-                        rows = if width <= 0 then [ints] else chunksOf width ints
-                    in map (map (/= (0 :: Int))) rows
-                extractCollision _ = replicate (if null tileLayers then 0 else length (snd (head tileLayers))) (replicate (if null tileLayers then 0 else length (head (snd (head tileLayers)))) False)
-
-                collisionMap = maybe (replicate (if null tileLayers then 0 else length (snd (head tileLayers))) (replicate (if null tileLayers then 0 else length (head (snd (head tileLayers)))) False)) extractCollision findCollision
-
-            return (tilesets, tileLayers, collisionMap)
-
-        _ -> error "JSON root no es un objeto"
-
--- Parsea un .tsx para extraer image source, tilewidth, tileheight y columnas (si falta columnas se calcula desde la imagen)
-parseTSX :: FilePath -> IO (Maybe (FilePath, Int, Int, Int))
-parseTSX tsxPath = do
-    mtxt <- safeRead tsxPath
-    case mtxt of
-        Nothing -> return Nothing
-        Just txt -> do
-            let t = T.pack txt
-                -- sección <tileset ...> ... </tileset>
-                tilesetSec = let (_,r) = T.breakOn (T.pack "<tileset") t in if T.null r then T.empty else r
-                -- sección <image .../>
-                imageSec = let (_,r) = T.breakOn (T.pack "<image") tilesetSec in if T.null r then T.empty else r
-                attrValue sec name =
-                    let marker = T.pack (name ++ "=\"")
-                        (_,rest) = T.breakOn marker sec
-                    in if T.null rest then T.empty else T.takeWhile (/= '"') (T.drop (T.length marker) rest)
-                twTxt = attrValue tilesetSec "tilewidth"
-                thTxt = attrValue tilesetSec "tileheight"
-                colsTxt = attrValue tilesetSec "columns"
-                imgSrcTxt = attrValue imageSec "source"
-                tileW = if T.null twTxt then 0 else read (T.unpack twTxt) :: Int
-                tileH = if T.null thTxt then 0 else read (T.unpack thTxt) :: Int
-                colsFromAttr = if T.null colsTxt then 0 else read (T.unpack colsTxt) :: Int
-            if T.null imgSrcTxt || tileW <= 0 || tileH <= 0
-               then return Nothing
-               else do
-                   let imgRel = T.unpack imgSrcTxt
-                       imgFull = normalise (takeDirectory tsxPath </> imgRel)
-                   -- si no hay columns, intentar calcular leyendo la imagen
-                   cols <- if colsFromAttr > 0
-                           then return colsFromAttr
-                           else do
-                               eimg <- try (readImage imgFull) :: IO (Either IOException (Either String DynamicImage))
-                               case eimg of
-                                   Right (Right dyn) -> do
-                                       let img = convertRGBA8 dyn
-                                       return $ (imageWidth img) `div` tileW
-                                   _ -> return 0
-                   return $ Just (imgRel, tileW, tileH, cols)
-
--- safeRead usando try
-safeRead :: FilePath -> IO (Maybe String)
-safeRead p = do
-    r <- try (readFile p) :: IO (Either IOException String)
-    case r of
-        Right s -> return (Just s)
-        Left _  -> return Nothing
-
--- helpers
+-- Dividir lista en chunks
 chunksOf :: Int -> [a] -> [[a]]
 chunksOf _ [] = []
 chunksOf n xs = take n xs : chunksOf n (drop n xs)
+
+-- Leer archivo de forma segura
+safeReadFile :: FilePath -> IO (Maybe String)
+safeReadFile path = do
+    result <- try (readFile path) :: IO (Either IOException String)
+    case result of
+        Left _ -> return Nothing
+        Right content -> return (Just content)
+
+-- Cargar mapa desde JSON
+loadMapFromJSON :: FilePath -> IO ([TilesetInfo], [TileLayer], [[Bool]])
+loadMapFromJSON path = do
+    content <- B.readFile path
+    let mval = decode content :: Maybe Value
+    case mval of
+        Nothing -> return ([], [], [])
+        Just val -> parseMap path val
+
+-- Parsear el mapa
+parseMap :: FilePath -> Value -> IO ([TilesetInfo], [TileLayer], [[Bool]])
+parseMap jsonPath (Object obj) = do
+    let width = fromMaybe 0 $ do
+            Number n <- KM.lookup (K.fromString "width") obj
+            toBoundedInteger n
+        height = fromMaybe 0 $ do
+            Number n <- KM.lookup (K.fromString "height") obj
+            toBoundedInteger n
+
+    -- Parsear tilesets
+    tilesets <- case KM.lookup (K.fromString "tilesets") obj of
+        Just (Array arr) -> parseTilesets jsonPath (V.toList arr)
+        _ -> return []
+
+    -- Parsear layers
+    layers <- case KM.lookup (K.fromString "layers") obj of
+        Just (Array arr) -> parseLayers width (V.toList arr)
+        _ -> return []
+
+    -- Crear mapa de colisiones vacío (se llenará con shapes)
+    let emptyCollisions = replicate height (replicate width False)
+
+    return (tilesets, layers, emptyCollisions)
+parseMap _ _ = return ([], [], [])
+
+-- Parsear tilesets
+parseTilesets :: FilePath -> [Value] -> IO [TilesetInfo]
+parseTilesets jsonPath vals = fmap catMaybes $ forM vals $ \v -> do
+    case v of
+        Object obj -> do
+            let firstgid = fromMaybe 0 $ do
+                    Number n <- KM.lookup (K.fromString "firstgid") obj
+                    toBoundedInteger n
+            -- Obtener source del TSX o imagen directa
+            case KM.lookup (K.fromString "source") obj of
+                Just (String srcTxt) -> do
+                    let tsxPath = takeDirectory jsonPath </> T.unpack srcTxt
+                    parseTSX firstgid tsxPath
+                _ -> return Nothing
+        _ -> return Nothing
+
+-- Parsear archivo TSX
+parseTSX :: Int -> FilePath -> IO (Maybe TilesetInfo)
+parseTSX firstgid tsxPath = do
+    content <- safeReadFile tsxPath
+    case content of
+        Nothing -> return Nothing
+        Just txt -> do
+            let t = T.pack txt
+                -- Extraer atributos del tileset
+                tileW = fromMaybe 32 $ extractAttr t "tilewidth"
+                tileH = fromMaybe 32 $ extractAttr t "tileheight"
+                cols = fromMaybe 16 $ extractAttr t "columns"
+                -- Extraer ruta de imagen
+                imgSrc = extractImageSource t
+                imgPath = case imgSrc of
+                    Just src -> takeDirectory tsxPath </> T.unpack src
+                    Nothing -> ""
+            return $ Just (firstgid, normalise imgPath, tileW, tileH, cols)
+
+-- Extraer atributo numérico de XML
+extractAttr :: T.Text -> String -> Maybe Int
+extractAttr txt attrName =
+    let marker = T.pack (attrName ++ "=\"")
+        (_, rest) = T.breakOn marker txt
+    in if T.null rest
+       then Nothing
+       else readMaybe . T.unpack $ T.takeWhile (/= '"') (T.drop (T.length marker) rest)
+
+-- Extraer source de imagen
+extractImageSource :: T.Text -> Maybe T.Text
+extractImageSource txt =
+    let marker = T.pack "source=\""
+        (_, rest) = T.breakOn marker txt
+    in if T.null rest
+       then Nothing
+       else Just $ T.takeWhile (/= '"') (T.drop (T.length marker) rest)
+
+-- Parsear layers
+parseLayers :: Int -> [Value] -> IO [TileLayer]
+parseLayers width vals = fmap catMaybes $ forM vals $ \v -> do
+    case v of
+        Object obj -> do
+            let mName = case KM.lookup (K.fromString "name") obj of
+                    Just (String s) -> Just (T.unpack s)
+                    _ -> Nothing
+                mData = case KM.lookup (K.fromString "data") obj of
+                    Just (Array arr) -> Just $ map extractInt (V.toList arr)
+                    _ -> Nothing
+            case (mName, mData) of
+                (Just name, Just tileData) ->
+                    return $ Just (name, chunksOf width tileData)
+                _ -> return Nothing
+        _ -> return Nothing
+
+extractInt :: Value -> Int
+extractInt (Number n) = fromMaybe 0 (toBoundedInteger n)
+extractInt _ = 0
+
+--------------------------------------------------------------------------------
+-- COLISIONES: Cargar shapes de colisión desde los TSX
+--------------------------------------------------------------------------------
+
+-- Cargar todas las shapes de colisión del mapa (GID global -> [CollisionShape])
+loadGlobalCollisionShapesFromMap :: FilePath -> IO (Map.Map Int [CollisionShape])
+loadGlobalCollisionShapesFromMap jsonPath = do
+    content <- B.readFile jsonPath
+    let mval = decode content :: Maybe Value
+    case mval of
+        Nothing -> return Map.empty
+        Just (Object obj) -> do
+            case KM.lookup (K.fromString "tilesets") obj of
+                Just (Array arr) -> do
+                    results <- forM (V.toList arr) $ \v -> do
+                        case v of
+                            Object tsObj -> do
+                                let firstgid = fromMaybe 0 $ do
+                                        Number n <- KM.lookup (K.fromString "firstgid") tsObj
+                                        toBoundedInteger n
+                                case KM.lookup (K.fromString "source") tsObj of
+                                    Just (String srcTxt) -> do
+                                        let tsxPath = takeDirectory jsonPath </> T.unpack srcTxt
+                                        localShapes <- parseTSXCollisionShapes tsxPath
+                                        -- Convertir IDs locales a GIDs globales
+                                        let globalShapes = Map.mapKeys (+ firstgid) localShapes
+                                        return globalShapes
+                                    _ -> return Map.empty
+                            _ -> return Map.empty
+                    return $ Map.unions results
+                _ -> return Map.empty
+        _ -> return Map.empty
+
+-- Parsear shapes de colisión de un TSX (tileId local -> [CollisionShape])
+parseTSXCollisionShapes :: FilePath -> IO (Map.Map Int [CollisionShape])
+parseTSXCollisionShapes tsxPath = do
+    content <- safeReadFile tsxPath
+    case content of
+        Nothing -> return Map.empty
+        Just txt -> do
+            let t = T.pack txt
+                -- Buscar todos los bloques <tile id="N">...</tile>
+                tileBlocks = extractTileBlocks t
+                -- Para cada bloque, extraer shapes
+                results = mapMaybe parseTileBlock tileBlocks
+            return $ Map.fromList results
+
+-- Extraer bloques de tile del XML
+extractTileBlocks :: T.Text -> [T.Text]
+extractTileBlocks txt =
+    let parts = T.splitOn (T.pack "<tile id=\"") txt
+    in drop 1 parts  -- Ignorar lo anterior al primer <tile
+
+-- Parsear un bloque de tile y extraer su ID y shapes
+parseTileBlock :: T.Text -> Maybe (Int, [CollisionShape])
+parseTileBlock block = do
+    -- Extraer el ID del tile
+    let idTxt = T.takeWhile (/= '"') block
+    tileId <- readMaybe (T.unpack idTxt) :: Maybe Int
+    -- Extraer shapes del objectgroup
+    let shapes = extractShapesFromBlock block
+    -- Solo devolver si hay shapes válidas (con área > 0)
+    let validShapes = filter hasArea shapes
+    if null validShapes
+        then Nothing
+        else Just (tileId, validShapes)
+
+-- Verificar si un shape tiene área
+hasArea :: CollisionShape -> Bool
+hasArea (CRect _ _ w h) = w > 0.1 && h > 0.1
+hasArea (CPoly pts) = length pts >= 3
+
+-- Extraer shapes de un bloque de tile
+extractShapesFromBlock :: T.Text -> [CollisionShape]
+extractShapesFromBlock block =
+    -- Buscar <objectgroup> y extraer objetos
+    let objParts = T.splitOn (T.pack "<object ") block
+    in mapMaybe parseObject (drop 1 objParts)
+
+-- Parsear un objeto individual a CollisionShape
+parseObject :: T.Text -> Maybe CollisionShape
+parseObject objTxt =
+    let getAttr name =
+            let marker = T.pack (name ++ "=\"")
+                (_, rest) = T.breakOn marker objTxt
+            in if T.null rest
+               then Nothing
+               else Just $ T.takeWhile (/= '"') (T.drop (T.length marker) rest)
+        
+        mx = getAttr "x" >>= readMaybe . T.unpack :: Maybe Float
+        my = getAttr "y" >>= readMaybe . T.unpack :: Maybe Float
+        mw = getAttr "width" >>= readMaybe . T.unpack :: Maybe Float
+        mh = getAttr "height" >>= readMaybe . T.unpack :: Maybe Float
+        mPoints = getAttr "points"
+    in case mPoints of
+        -- Es un polígono
+        Just ptsTxt ->
+            let pairs = T.splitOn (T.pack " ") ptsTxt
+                parsePair p = case T.splitOn (T.pack ",") p of
+                    [a, b] -> case (readMaybe (T.unpack a), readMaybe (T.unpack b)) of
+                        (Just px, Just py) -> Just (px, py)
+                        _ -> Nothing
+                    _ -> Nothing
+                pts = mapMaybe parsePair pairs
+            in if length pts >= 3
+               then Just (CPoly pts)
+               else Nothing
+        -- Es un rectángulo
+        Nothing ->
+            case (mx, my, mw, mh) of
+                (Just x, Just y, Just w, Just h) ->
+                    if w > 0.1 && h > 0.1
+                    then Just (CRect x y w h)
+                    else Nothing
+                _ -> Nothing

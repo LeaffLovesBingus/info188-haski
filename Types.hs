@@ -2,7 +2,8 @@ module Types where
 
 import Graphics.Gloss
 import Data.Ix (Ix)
-
+import qualified Data.Map.Strict as Map
+import MapLoader (CollisionShape)
 
 -- Tipos básicos
 type Position = (Float, Float)
@@ -60,7 +61,9 @@ data GameState = GameState {
     projectiles :: [Projectile],
     inputState :: InputState,
     tileMap :: [[Int]],
-    collisionMap :: [[Bool]], -- <-- nueva capa de colisiones
+    allLayers :: [[[Int]]],  -- Todas las capas del mapa (para colisiones)
+    collisionMap :: [[Bool]],
+    collisionShapes :: Map.Map Int [CollisionShape],  -- GID -> shapes de colisión
     randomSeed :: Int
 } deriving (Show)
 
@@ -89,3 +92,6 @@ playerSprintSpeed = 500
 
 playerBaseHealth :: Int
 playerBaseHealth = 100
+
+playerCollisionHalfSize :: Float
+playerCollisionHalfSize = 12.0  -- Mitad del tamaño de colisión del jugador (40x40 píxeles, escalado con sprite 3x)

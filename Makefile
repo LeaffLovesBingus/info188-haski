@@ -1,34 +1,54 @@
-.PHONY: all build run clean
+# Makefile para el proyecto Haski
 
-# Configuración
-GHC = ghc
-GHCFLAGS = -O2 -threaded -outputdir bin -o bin/juego -package mtl -package gloss -package array -package aeson -package bytestring -package scientific -package vector -package unordered-containers -package text -package filepath
-SOURCES = main.hs Types.hs Logic.hs Render.hs Assets.hs MapLoader.hs
-EXECUTABLE = bin/juego
+# Nombre del ejecutable
+EXEC = juego
 
-# Regla por defecto
+# Directorio de salida
+BIN_DIR = bin
+
+# Paquetes necesarios
+PACKAGES = -package gloss \
+           -package gloss-juicy \
+           -package JuicyPixels \
+           -package aeson \
+           -package bytestring \
+           -package filepath \
+           -package vector \
+           -package unordered-containers \
+           -package text \
+           -package containers \
+           -package array \
+           -package scientific \
+           -package mtl
+
+# Flags de compilación
+GHC_FLAGS = -odir $(BIN_DIR) -hidir $(BIN_DIR) -o $(BIN_DIR)/$(EXEC)
+
+# Regla principal
 all: build
 
-# Crear el directorio bin si no existe
-bin:
-	@mkdir -p bin
+# Crear directorio bin si no existe
+$(BIN_DIR):
+	mkdir -p $(BIN_DIR)
 
-# Compilar el juego
-build: bin $(SOURCES)
-	$(GHC) $(GHCFLAGS) --make main.hs
+# Instalar dependencias con cabal
+install-deps:
+	cabal install --lib gloss gloss-juicy JuicyPixels aeson bytestring filepath vector unordered-containers text containers array scientific mtl
+
+# Compilar el proyecto
+build: $(BIN_DIR)
+	ghc $(GHC_FLAGS) $(PACKAGES) --make main.hs
 
 # Ejecutar el juego
 run: build
-	./$(EXECUTABLE)
+	./$(BIN_DIR)/$(EXEC)
 
-# Limpiar archivos generados
+# Limpiar archivos compilados
 clean:
-	rm -rf bin
+	rm -rf $(BIN_DIR)/*.o $(BIN_DIR)/*.hi $(BIN_DIR)/$(EXEC)
 
-# Instalar dependencias (requiere cabal)
-install-deps:
-	cabal install gloss --lib
-	cabal install mtl --lib
-	cabal install gloss-juicy --lib
-	cabal install JuicyPixels --lib
-	cabal install aeson --lib
+# Limpiar todo
+cleanall:
+	rm -rf $(BIN_DIR)
+
+.PHONY: all build run clean cleanall install-deps
