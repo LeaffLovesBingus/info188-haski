@@ -334,7 +334,7 @@ renderPlayer gs =
         framePic = playerFrames Array.! (dir, anim, safeFrame)
 
     in translate screenX screenY 
-        $ scale 3.0 3.0
+        $ scale 2.0 2.0
         $ framePic
 
 
