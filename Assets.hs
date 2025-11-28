@@ -83,11 +83,19 @@ itemSprites = unsafePerformIO $ do
     ballesta <- loadItemSprite "assets/items/armas/ballesta.png"
     boomerang <- loadItemSprite "assets/items/armas/boomerang.png"
     espada <- loadItemSprite "assets/items/armas/espada.png"
+    curacion <- loadItemSprite "assets/items/efectos/pocion_curacion.png"
+    fuerza <- loadItemSprite "assets/items/efectos/pocion_fuerza.png"
+    velocidad <- loadItemSprite "assets/items/efectos/pocion_velocidad.png"
+    stamina <- loadItemSprite "assets/items/efectos/pocion_stamina.png"
 
-    return $ Array.array (Ballesta, Espada) 
+    return $ Array.array (Ballesta, Fuerza) 
         [ (Ballesta, ballesta)
         , (Boomerang, boomerang)
         , (Espada, espada)
+        , (Curacion, curacion)
+        , (Velocidad, velocidad)
+        , (Fuerza, fuerza)
+        , (Stamina, stamina)
         ]
 {-# NOINLINE itemSprites #-}
 
