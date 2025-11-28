@@ -202,19 +202,30 @@ updatePlayerMovement dt = do
                       else if dy > 0 then DirUp else DirDown
         
         -- Actualizar animación
-        newAnimTime = if isMoving 
-                      then playerAnimTime p + dt 
-                      else 0
-        newFrame = if isMoving 
-                   then floor (newAnimTime * 8) `mod` 4 
-                   else 0
+        newAnimTime = playerAnimTime p + dt
+
+        (finalFrame, finalAnimTime) = if isMoving 
+            then
+                -- Animación de caminar (8 fps, 1 frame cada 0.125 s)
+                let frameTime = 0.125
+                    totalFrames = 4
+                in if newAnimTime >= frameTime
+                    then ((playerFrame p + 1) `mod` totalFrames, newAnimTime - frameTime)
+                    else (playerFrame p, newAnimTime)
+            else 
+                -- Animación de idle (2 fps, 1 frame cada 0.5 s)
+                let frameTime = 0.5
+                    totalFrames = 2
+                in if newAnimTime >= frameTime
+                    then ((playerFrame p + 1) `mod` totalFrames, newAnimTime - frameTime)
+                    else (playerFrame p, newAnimTime)
         
         newPlayer = p { 
             playerPos = finalPos, 
             playerVel = newVel,
             playerDir = newDir,
-            playerFrame = newFrame,
-            playerAnimTime = newAnimTime
+            playerFrame = finalFrame,
+            playerAnimTime = finalAnimTime
         }
     
     put gs { player = newPlayer }
