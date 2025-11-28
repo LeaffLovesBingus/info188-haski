@@ -77,6 +77,29 @@ playerFrames = unsafePerformIO $ do
 {-# NOINLINE playerFrames #-}
 
 
+-- Carga los sprites de los items
+itemSprites :: Array.Array ItemType Picture
+itemSprites = unsafePerformIO $ do
+    ballesta <- loadItemSprite "assets/items/armas/ballesta.png"
+    boomerang <- loadItemSprite "assets/items/armas/boomerang.png"
+    espada <- loadItemSprite "assets/items/armas/espada.png"
+
+    return $ Array.array (Ballesta, Espada) 
+        [ (Ballesta, ballesta)
+        , (Boomerang, boomerang)
+        , (Espada, espada)
+        ]
+{-# NOINLINE itemSprites #-}
+
+
+loadItemSprite :: FilePath -> IO Picture
+loadItemSprite path = do
+    result <- readImage path
+    case result of
+        Left _ -> return Blank
+        Right dyn -> return $ fromImageRGBA8 (convertRGBA8 dyn)
+
+
 -- Nueva: cargar un tileset (.png) y devolver la lista de tiles (Pictures).
 -- No sustituye nada existente: es una función utilitaria adicional.
 loadTileset :: FilePath -> Int -> Int -> IO [Picture]

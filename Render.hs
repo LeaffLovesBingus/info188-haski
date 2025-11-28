@@ -151,6 +151,7 @@ extractRegion img x y w h
 renderGame :: GameState -> Picture
 renderGame gs = pictures 
     [ renderBackground gs
+    , renderWorldItems gs
     , renderPlayer gs
     , renderProjectiles gs
     , renderCursor gs
@@ -310,7 +311,6 @@ renderTile tiles x y camX camY =
         $ tilePic
 
 
-
 -- Renderizar jugador
 renderPlayer :: GameState -> Picture
 renderPlayer gs = 
@@ -338,7 +338,7 @@ renderPlayer gs =
         $ framePic
 
 
--- Renderizxar proyectiles
+-- Renderizar proyectiles
 renderProjectiles :: GameState -> Picture
 renderProjectiles gs = 
     let cam = cameraPos (camera gs)
@@ -373,3 +373,54 @@ renderCursor gs =
     in translate mx my 
         $ scale 0.3 0.3
         $ crosshairPicture
+
+
+-- Renderiza los items en el mundo con una animación de flote
+renderWorldItems :: GameState -> Picture
+renderWorldItems gs = 
+    let cam = cameraPos (camera gs)
+        camX = fst cam
+        camY = snd cam
+        items = worldItems gs
+
+        p = player gs
+        (px, py) = playerPos p
+        
+        renderItem item = 
+            let (ix, iy) = itemPos item
+                -- Animación de flote
+                floatOffset = sin (itemFloatTime item * itemFloatSpeed) * itemFloatHeight
+
+                screenX = ix - camX
+                screenY = iy - camY + floatOffset
+
+                -- Sprite del item
+                itemPic = itemSprites Array.! itemType item
+
+                -- Calcular la distancia al jugador
+                dist = sqrt ((px - ix) ^ 2 + (py - iy) ^ 2)
+                isNear = dist <= itemPickupRadius
+
+                itemText = if isNear
+                    then pictures
+                        [   -- Nombre del item
+                            translate screenX (screenY + 40) $
+                            scale 0.12 0.12 $
+                            color white $
+                            text (itemName (itemType item))
+                            , -- Instrucción
+                            translate screenX (screenY + 20) $
+                            scale 0.09 0.09 $
+                            color (makeColor 0.9 0.9 0.9 1) $
+                            text "[E] para recoger"
+                        ]
+                    else Blank
+            
+            in pictures
+                [   translate screenX screenY $ scale 1.0 1.0 $ itemPic,
+                    itemText
+                ]
+    
+    in pictures (map renderItem items)
+
+        
