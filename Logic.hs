@@ -19,7 +19,7 @@ initialGameState tiles layers collisions = GameState {
         playerFrame = 0, 
         playerAnimTime = 0 
     },
-    camera = Camera { cameraPos = (0, 0) },
+    camera = Camera { cameraPos = spawnAtTile 25 25, cameraTarget = spawnAtTile 25 25 },
     projectiles = [],
     inputState = InputState {
         keyW = False,
@@ -157,7 +157,7 @@ handleInputEvent event = do
 updateGame :: Float -> State GameState ()
 updateGame dt = do
     updatePlayerMovement dt
-    updateCamera
+    updateCamera dt
     updateProjectiles dt
 
 -- Actualizar movimiento del jugador CON COLISIONES
@@ -220,13 +220,24 @@ updatePlayerMovement dt = do
     put gs { player = newPlayer }
 
 -- Actualizar cámara para seguir al jugador
-updateCamera :: State GameState ()
-updateCamera = do
+updateCamera :: Float -> State GameState ()
+updateCamera dt = do
     gs <- get
-    let p = player gs
-        (px, py) = playerPos p
+    let pPos = playerPos (player gs)
         cam = camera gs
-        newCam = cam { cameraPos = (px, py) }
+        currentPos = cameraPos cam
+
+        -- Interpolación lineal hacia la posición del jugador
+        lerpFactor = 1.0 - (1.0 - cameraSmoothing) ** (dt * 60.0)
+
+        (cx, cy) = currentPos
+        (px, py) = pPos
+
+        newX = cx + (px - cx) * lerpFactor
+        newY = cy + (py - cy) * lerpFactor
+
+        newCam = cam { cameraPos = (newX, newY), cameraTarget = pPos }
+        
     put gs { camera = newCam }
 
 -- Actualizar proyectiles

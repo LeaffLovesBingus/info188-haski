@@ -38,7 +38,8 @@ data Player = Player {
 
 -- Cámara
 data Camera = Camera {
-    cameraPos :: Position
+    cameraPos :: Position,
+    cameraTarget :: Position
 } deriving (Show)
 
 
@@ -88,10 +89,13 @@ playerBaseSpeed :: Float
 playerBaseSpeed = 350
 
 playerSprintSpeed :: Float
-playerSprintSpeed = 500
+playerSprintSpeed = 550
 
 playerBaseHealth :: Int
 playerBaseHealth = 100
 
 playerCollisionHalfSize :: Float
 playerCollisionHalfSize = 12.0  -- Mitad del tamaño de colisión del jugador (40x40 píxeles, escalado con sprite 3x)
+
+cameraSmoothing :: Float
+cameraSmoothing = 0.15
