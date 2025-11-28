@@ -3,6 +3,7 @@ module Logic where
 import Types
 import Graphics.Gloss.Interface.Pure.Game
 import Control.Monad.State
+import Control.Monad (when)
 import qualified Data.Map.Strict as Map
 import MapLoader (CollisionShape(..))
 import Data.Bits ((.&.))
@@ -17,16 +18,23 @@ initialGameState tiles layers collisions = GameState {
         playerSpeed = playerBaseSpeed,
         playerDir = DirDown, 
         playerFrame = 0, 
-        playerAnimTime = 0 
+        playerAnimTime = 0,
+        playerEquippedItem = Nothing
     },
     camera = Camera { cameraPos = spawnAtTile 25 25, cameraTarget = spawnAtTile 25 25 },
     projectiles = [],
+    worldItems = [ -- Items de ejemplo
+        WorldItem { itemPos = spawnAtTile 27 25, itemType = Ballesta, itemFloatTime = 0 },
+        WorldItem { itemPos = spawnAtTile 23 25, itemType = Boomerang, itemFloatTime = 0 },
+        WorldItem { itemPos = spawnAtTile 25 27, itemType = Espada, itemFloatTime = 0 }
+    ],
     inputState = InputState {
         keyW = False,
         keyA = False,
         keyS = False,
         keyD = False,
         keyB = False,
+        keyE = False,
         mousePos = (0, 0),
         mouseClick = False
     },
@@ -130,7 +138,7 @@ playerCollidesAt gs (px, py) =
     
     in or [checkTile c r | c <- colsToCheck, r <- rowsToCheck]
 
--- Spawn del jugador en coordenadas de tile
+-- Spawn de entidad/item en coordenadas de tile
 spawnAtTile :: Int -> Int -> (Float, Float)
 spawnAtTile col row = (fromIntegral col * tileSize, fromIntegral row * tileSize)
 
@@ -148,6 +156,8 @@ handleInputEvent event = do
         EventKey (Char 'a') Up _ _ -> put gs { inputState = inp { keyA = False } }
         EventKey (Char 'd') Down _ _ -> put gs { inputState = inp { keyD = True } }
         EventKey (Char 'd') Up _ _ -> put gs { inputState = inp { keyD = False } }
+        EventKey (Char 'e') Down _ _ -> put gs { inputState = inp { keyE = True } }
+        EventKey (Char 'e') Up _ _ -> put gs { inputState = inp { keyE = False } }
         EventKey (MouseButton LeftButton) Down _ pos -> put gs { inputState = inp { mouseClick = True, mousePos = pos } }
         EventKey (MouseButton LeftButton) Up _ _ -> put gs { inputState = inp { mouseClick = False } }
         EventMotion pos -> put gs { inputState = inp { mousePos = pos } }
@@ -159,6 +169,8 @@ updateGame dt = do
     updatePlayerMovement dt
     updateCamera dt
     updateProjectiles dt
+    updateWorldItems dt
+    handleItemPickup
 
 -- Actualizar movimiento del jugador CON COLISIONES
 updatePlayerMovement :: Float -> State GameState ()
@@ -251,6 +263,7 @@ updateCamera dt = do
         
     put gs { camera = newCam }
 
+
 -- Actualizar proyectiles
 updateProjectiles :: Float -> State GameState ()
 updateProjectiles dt = do
@@ -292,3 +305,45 @@ updateProjectiles dt = do
                        ) newProjs
     
     put gs { projectiles = updatedProjs, inputState = inp { mouseClick = False } }
+
+
+-- Actualizar la animación de flote de los items en el mundo
+updateWorldItems :: Float -> State GameState ()
+updateWorldItems dt = do
+    gs <- get
+    let items = worldItems gs
+        updatedItems = map (\item -> item { itemFloatTime = itemFloatTime item + dt }) items
+    put gs { worldItems = updatedItems }
+
+
+-- Manejar la recogida de items
+handleItemPickup :: State GameState ()
+handleItemPickup = do
+    gs <- get
+    let inp = inputState gs
+        p = player gs
+        (px, py) = playerPos p
+        items = worldItems gs
+
+    when (keyE inp) $ do
+        let nearbyItems =
+                filter
+                    (\item ->
+                        let (ix, iy) = itemPos item
+                            dist = sqrt ((px - ix) ^ 2 + (py - iy) ^ 2)
+                        in dist <= itemPickupRadius
+                    )
+                    items
+
+        case nearbyItems of
+            (item:_) -> do
+                let newPlayer = p { playerEquippedItem = Just (itemType item) }
+                    remaining = filter (/= item) items
+                put gs
+                    { player = newPlayer
+                    , worldItems = remaining
+                    , inputState = inp { keyE = False }
+                    }
+
+            [] -> return ()
+    

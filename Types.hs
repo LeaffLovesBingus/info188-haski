@@ -16,6 +16,9 @@ data Direction = DirDown | DirRight | DirUp | DirLeft
 data AnimType = Idle | Walk 
     deriving (Eq, Ord, Show, Ix, Bounded)
 
+data ItemType = Ballesta | Boomerang | Espada
+    deriving (Eq, Ord, Show, Ix, Bounded)
+
 -- Proyectil
 data Projectile = Projectile {
     projPos :: Position,
@@ -32,8 +35,17 @@ data Player = Player {
     playerSpeed :: Float,
     playerDir :: Direction,
     playerFrame :: Int,
-    playerAnimTime :: Float
+    playerAnimTime :: Float,
+    playerEquippedItem :: Maybe ItemType
 } deriving (Show)
+
+
+-- Item en el mundo
+data WorldItem = WorldItem {
+    itemPos :: Position,
+    itemType :: ItemType,
+    itemFloatTime :: Float
+} deriving (Show, Eq)
 
 
 -- Cámara
@@ -50,6 +62,7 @@ data InputState = InputState {
     keyS :: Bool,
     keyD :: Bool,
     keyB :: Bool,
+    keyE :: Bool,
     mousePos :: Position,
     mouseClick :: Bool
 } deriving (Show)
@@ -60,6 +73,7 @@ data GameState = GameState {
     player :: Player,
     camera :: Camera,
     projectiles :: [Projectile],
+    worldItems :: [WorldItem],
     inputState :: InputState,
     tileMap :: [[Int]],
     allLayers :: [[[Int]]],  -- Todas las capas del mapa (para colisiones)
@@ -95,7 +109,22 @@ playerBaseHealth :: Int
 playerBaseHealth = 100
 
 playerCollisionHalfSize :: Float
-playerCollisionHalfSize = 12.0  -- Mitad del tamaño de colisión del jugador (40x40 píxeles, escalado con sprite 3x)
+playerCollisionHalfSize = 18.0  -- Mitad del tamaño de colisión del jugador (40x40 píxeles, escalado con sprite 3x)
 
 cameraSmoothing :: Float
 cameraSmoothing = 0.15
+
+itemPickupRadius :: Float
+itemPickupRadius = 50.0
+
+itemFloatSpeed :: Float
+itemFloatSpeed = 2.0
+
+itemFloatHeight :: Float
+itemFloatHeight = 8.0
+
+-- Nombre de cada item en String
+itemName :: ItemType -> String
+itemName Ballesta = "Ballesta"
+itemName Boomerang = "Boomerang"
+itemName Espada = "Espada"
