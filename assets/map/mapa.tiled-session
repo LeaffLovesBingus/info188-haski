@@ -3,7 +3,7 @@
         "height": 4300,
         "width": 2
     },
-    "activeFile": "mapa.tmx",
+    "activeFile": "TX Struct.tsx",
     "expandedProjectPaths": [
         "."
     ],
@@ -17,7 +17,7 @@
         },
         "TX Player.tsx": {
             "scaleInDock": 1,
-            "scaleInEditor": 1
+            "scaleInEditor": 3
         },
         "TX Props.tsx": {
             "scaleInDock": 1,
@@ -51,8 +51,8 @@
             "scale": 1,
             "selectedLayer": 0,
             "viewCenter": {
-                "x": 1635.5,
-                "y": 1580
+                "x": 1451.5,
+                "y": 1535
             }
         }
     },
@@ -76,6 +76,7 @@
     ],
     "project": "mapa.tiled-project",
     "recentFiles": [
+        "mapa.tmx",
         "TX Tileset Stone Ground.tsx",
         "TX Tileset Grass.tsx",
         "TX Shadow.tsx",
@@ -84,8 +85,7 @@
         "TX Player.tsx",
         "TX Plant.tsx",
         "TX Tileset Wall.tsx",
-        "TX Struct.tsx",
-        "mapa.tmx"
+        "TX Struct.tsx"
     ],
     "tileset.lastUsedFormat": "tsx"
 }
