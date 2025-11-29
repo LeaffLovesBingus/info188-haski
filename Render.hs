@@ -132,10 +132,14 @@ renderGame gs =
       camX = fst cam
       camY = snd cam
 
+      -- Usar las capas almacenadas en el estado cuando estén disponibles,
+      -- pero conservar los nombres de `layersCache` (que vienen del JSON/TSX).
       allLayersList =
         if null layersCache
           then [("legacy", tileMap gs)]
-          else map (\(name, tiles) -> (name, tiles)) layersCache
+          else let names = map fst layersCache
+                   tilesFromState = if null (allLayers gs) then map snd layersCache else allLayers gs
+               in zip names tilesFromState
 
       (layersBelow, layersAbove) = splitAt 3 allLayersList
 
@@ -145,8 +149,8 @@ renderGame gs =
           renderWorldItems gs,
           renderPlayer gs,
           renderProjectiles gs,
-          renderDestructibleHealthBars gs,  -- BARRAS DE VIDA
           renderLayers layersAbove,
+          renderDestructibleHealthBars gs,  -- BARRAS DE VIDA (dibujar encima de props)
           renderCursor gs,
           renderCooldownBar gs,
           renderHUD gs

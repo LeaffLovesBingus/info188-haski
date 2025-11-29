@@ -148,20 +148,20 @@ cooldownBarHeight = 4.0
 -- CONFIGURACIÓN DE OBJETOS DESTRUCTIBLES
 -- GIDs de los objetos destructibles (ids de colisión)
 destructibleGids :: [Int]
-destructibleGids = [85, 21, 149]
+destructibleGids = [833 + 85, 833 + 21, 1665 + 149]  -- [918, 854, 1814]
 
 -- Vida máxima según GID
 getMaxHealth :: Int -> Float
-getMaxHealth 85 = 70.0   -- Barril
-getMaxHealth 21 = 105.0  -- Caja grande
-getMaxHealth 149 = 70.0  -- Vasija
+getMaxHealth 918 = 70.0   -- Barril (85 + 833)
+getMaxHealth 854 = 105.0  -- Caja grande (21 + 833)  
+getMaxHealth 1814 = 70.0  -- Vasija (149 + 1665)
 getMaxHealth _ = 100.0
 
 -- Item que dropea cada objeto
 getLootItem :: Int -> ItemType
-getLootItem 85 = Curacion    -- Barril -> Poción de curación
-getLootItem 21 = Fuerza      -- Caja -> Poción de fuerza
-getLootItem 149 = Velocidad  -- Vasija -> Poción de velocidad
+getLootItem 918 = Curacion    -- Barril -> Poción de curación
+getLootItem 854 = Fuerza      -- Caja -> Poción de fuerza  
+getLootItem 1814 = Velocidad  -- Vasija -> Poción de velocidad
 getLootItem _ = Curacion
 
 -- Nombre de cada item
