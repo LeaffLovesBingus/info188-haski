@@ -54,9 +54,7 @@ initialGameState tiles layers collisions = GameState {
         key4 = False,
         key5 = False,
         mousePos = (0, 0),
-        mouseClick = False,
-        scrollUp = False,
-        scrollDown = False
+        mouseClick = False
     },
     tileMap = tiles,
     allLayers = layers,
@@ -135,17 +133,13 @@ handleInputEvent event = do
         EventKey (Char '5') Up _ _ -> put gs { inputState = inp { key5 = False } }
         EventKey (MouseButton LeftButton) Down _ pos -> put gs { inputState = inp { mouseClick = True, mousePos = pos } }
         EventKey (MouseButton LeftButton) Up _ _ -> put gs { inputState = inp { mouseClick = False } }
-        EventKey (MouseButton WheelUp) Down _ _ -> put gs { inputState = inp { scrollUp = True } }
-        EventKey (MouseButton WheelUp) Up _ _ -> put gs { inputState = inp { scrollUp = False } }
-        EventKey (MouseButton WheelDown) Down _ _ -> put gs { inputState = inp { scrollDown = True } }
-        EventKey (MouseButton WheelDown) Up _ _ -> put gs { inputState = inp { scrollDown = False } }
         EventMotion pos -> put gs { inputState = inp { mousePos = pos } }
         _ -> return ()
 
 -- Actualizar juego
 updateGame :: Float -> State GameState ()
 updateGame dt = do
-    handleSlotSelection         -- Selección de slots con teclado y scrollwheel
+    handleSlotSelection         -- Selección de slots con teclado
     handleItemDrop              -- Soltar items con Q
     updatePlayerMovement dt
     updateCamera dt
@@ -694,8 +688,6 @@ handleSlotSelection = do
                        else if key3 inp then Just 2
                        else if key4 inp then Just 3
                        else if key5 inp then Just 4
-                       else if scrollUp inp then Just ((currentSlot + 1) `mod` inventorySize)
-                       else if scrollDown inp then Just ((currentSlot - 1 + inventorySize) `mod` inventorySize)
                        else Nothing
     
     case newSlotMaybe of
@@ -717,8 +709,7 @@ handleSlotSelection = do
                 -- Resetear las teclas de input
                 newInput = inp { 
                     key1 = False, key2 = False, key3 = False, 
-                    key4 = False, key5 = False,
-                    scrollUp = False, scrollDown = False 
+                    key4 = False, key5 = False
                 }
             
             put gs { player = newPlayer, inputState = newInput }

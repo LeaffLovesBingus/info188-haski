@@ -100,9 +100,7 @@ data InputState = InputState {
     key4 :: Bool,           -- Slot 4
     key5 :: Bool,           -- Slot 5
     mousePos :: Position,   -- Posición del mouse
-    mouseClick :: Bool,     -- Disparar/consumir
-    scrollUp :: Bool,       -- Recorrer inventario
-    scrollDown :: Bool      -- Recorrer inventario
+    mouseClick :: Bool      -- Disparar/consumir
 } deriving (Show)
 
 -- Estado del juego
