@@ -4,7 +4,6 @@ import Graphics.Gloss
 import Graphics.Gloss.Interface.Pure.Game
 import Control.Monad.State (execState)
 import qualified Data.Map.Strict as Map
-
 import Types
 import Logic
 import Render
@@ -24,8 +23,16 @@ main = do
                           then []
                           else head allLayerTiles
         
+        -- Crear estado inicial base
         initStateBase = initialGameState firstLayerTiles allLayerTiles collisions
-        initState = initStateBase { collisionShapes = shapesMap }
+        
+        -- Añadir collision shapes
+        initStateWithShapes = initStateBase { collisionShapes = shapesMap }
+        
+        -- NUEVO: Escanear y crear objetos destructibles
+        initState = scanForDestructibles initStateWithShapes
+    
+    putStrLn $ "Objetos destructibles encontrados: " ++ show (length (destructibleObjects initState))
     
     play
         (InWindow "Haski" (screenWidth, screenHeight) (100, 100))

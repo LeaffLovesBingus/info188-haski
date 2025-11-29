@@ -1,5 +1,4 @@
 module Types where
-
 import Graphics.Gloss
 import Data.Ix (Ix)
 import qualified Data.Map.Strict as Map
@@ -19,13 +18,21 @@ data AnimType = Idle | Walk
 data ItemType = Ballesta | Boomerang | Espada | Curacion | Velocidad | Stamina | Fuerza
     deriving (Eq, Ord, Show, Ix, Bounded)
 
+-- NUEVO: Objeto destructible
+data DestructibleObject = DestructibleObject {
+    destPos :: Position,          -- Posición del objeto
+    destHealth :: Float,          -- Vida actual
+    destMaxHealth :: Float,       -- Vida máxima
+    destGid :: Int,               -- GID del tile de colisión
+    destTilePos :: TileCoord      -- Posición (col, row) del tile
+} deriving (Show, Eq)
+
 -- Proyectil
 data Projectile = Projectile {
     projPos :: Position,
     projVel :: Velocity,
     projLifetime :: Float
-} deriving (Show)
-
+} deriving (Show, Eq)
 
 -- Jugador
 data Player = Player {
@@ -40,7 +47,6 @@ data Player = Player {
     playerCooldownBallesta :: Float
 } deriving (Show)
 
-
 -- Item en el mundo
 data WorldItem = WorldItem {
     itemPos :: Position,
@@ -48,13 +54,11 @@ data WorldItem = WorldItem {
     itemFloatTime :: Float
 } deriving (Show, Eq)
 
-
 -- Cámara
 data Camera = Camera {
     cameraPos :: Position,
     cameraTarget :: Position
 } deriving (Show)
-
 
 -- Input del usuario
 data InputState = InputState {
@@ -68,21 +72,20 @@ data InputState = InputState {
     mouseClick :: Bool
 } deriving (Show)
 
-
 -- Estado del juego
 data GameState = GameState {
     player :: Player,
     camera :: Camera,
     projectiles :: [Projectile],
     worldItems :: [WorldItem],
+    destructibleObjects :: [DestructibleObject],
     inputState :: InputState,
     tileMap :: [[Int]],
-    allLayers :: [[[Int]]],  -- Todas las capas del mapa (para colisiones)
+    allLayers :: [[[Int]]],
     collisionMap :: [[Bool]],
-    collisionShapes :: Map.Map Int [CollisionShape],  -- GID -> shapes de colisión
+    collisionShapes :: Map.Map Int [CollisionShape],
     randomSeed :: Int
 } deriving (Show)
-
 
 -- Constantes
 tileSize :: Float
@@ -100,11 +103,9 @@ projectileSpeed = 1200
 projectileLifetime :: Float
 projectileLifetime = 1.5
 
--- DAÑO QUE VA A INFLINGIR LA FLECHA
 arrowDamage :: Float
-arrowDamage = 60 -- suponiendo que el enemigo tenga 100 de vida
+arrowDamage = 35.0
 
--- Daño que va a inflingir el boomerang
 boomerangDamage :: Float
 boomerangDamage = 40
 
@@ -118,11 +119,10 @@ playerBaseHealth :: Int
 playerBaseHealth = 100
 
 playerCollisionHalfSize :: Float
-playerCollisionHalfSize = 14.0  -- Mitad del tamaño de colisión del jugador (28x28 píxeles)
+playerCollisionHalfSize = 14.0
 
--- Offset Y de la colisión del jugador (negativo = más abajo, hacia los pies)
 playerCollisionOffsetY :: Float
-playerCollisionOffsetY = -20.0  -- Bajar la colisión hacia los pies del sprite
+playerCollisionOffsetY = -20.0
 
 cameraSmoothing :: Float
 cameraSmoothing = 0.15
@@ -143,9 +143,28 @@ cooldownBarWidth :: Float
 cooldownBarWidth = 50.0
 
 cooldownBarHeight :: Float
-cooldownBarHeight = 4.0 
+cooldownBarHeight = 4.0
 
--- Nombre de cada item en String
+-- CONFIGURACIÓN DE OBJETOS DESTRUCTIBLES
+-- GIDs de los objetos destructibles (ids de colisión)
+destructibleGids :: [Int]
+destructibleGids = [85, 21, 149]
+
+-- Vida máxima según GID
+getMaxHealth :: Int -> Float
+getMaxHealth 85 = 70.0   -- Barril
+getMaxHealth 21 = 105.0  -- Caja grande
+getMaxHealth 149 = 70.0  -- Vasija
+getMaxHealth _ = 100.0
+
+-- Item que dropea cada objeto
+getLootItem :: Int -> ItemType
+getLootItem 85 = Curacion    -- Barril -> Poción de curación
+getLootItem 21 = Fuerza      -- Caja -> Poción de fuerza
+getLootItem 149 = Velocidad  -- Vasija -> Poción de velocidad
+getLootItem _ = Curacion
+
+-- Nombre de cada item
 itemName :: ItemType -> String
 itemName Ballesta = "Ballesta"
 itemName Boomerang = "Boomerang"
