@@ -497,15 +497,18 @@ createLootItem obj = WorldItem {
     itemFloatTime = 0
 }
 
--- Eliminar tile del mapa
+-- Eliminar SOLO los tiles en las posiciones específicas del objeto
 removeTileFromLayers :: [[[Int]]] -> DestructibleObject -> [[[Int]]]
 removeTileFromLayers layers obj =
-    let (col, row) = destTilePos obj
-    in map (removeTileFromLayer col row) layers
+    let (baseCol, baseRow) = destTilePos obj
+        offsets = getDestructibleOffsets (destGid obj)
+        positionsToRemove = map (\(offsetX, offsetY) -> 
+            (baseCol + offsetX, baseRow + offsetY)) offsets
+    in map (removePositionsFromLayer positionsToRemove) layers
 
-removeTileFromLayer :: Int -> Int -> [[Int]] -> [[Int]]
-removeTileFromLayer col row layer =
-    [[if r == row && c == col then 0 else gid
+removePositionsFromLayer :: [TileCoord] -> [[Int]] -> [[Int]]
+removePositionsFromLayer positions layer =
+    [[if (c, r) `elem` positions then 0 else gid
       | (c, gid) <- zip [0..] rowData]
      | (r, rowData) <- zip [0..] layer]
 

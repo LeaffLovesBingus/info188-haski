@@ -157,6 +157,31 @@ getMaxHealth 1686 = 105.0  -- Caja grande (21 + 1665)
 getMaxHealth 1814 = 70.0  -- Vasija (149 + 1665)
 getMaxHealth _ = 100.0
 
+-- TODOS los GIDs que componen cada objeto destructible
+getAllDestructibleGids :: Int -> [Int]
+getAllDestructibleGids 1750 = [1734, 1750, 1751]  -- Barril completo
+getAllDestructibleGids 1686 = [1670, 1671, 1686, 1687]  -- Caja completa
+getAllDestructibleGids 1814 = [1814]  -- Vasija
+getAllDestructibleGids _ = []
+
+-- Offsets relativos CORREGIDOS para cada objeto: (offset_col, offset_row)
+getDestructibleOffsets :: Int -> [(Int, Int)]
+getDestructibleOffsets 1750 = [  -- Barril (estructura en L)
+    (0, -1),  -- Tile superior (arriba del de colisión)
+    (0, 0),   -- Tile de colisión (posición base)
+    (1, 0)    -- Tile de sombra (derecha del de colisión)
+    ]
+getDestructibleOffsets 1686 = [  -- Caja (2x2 completo)
+    (0, -1),  -- Tile superior izquierdo (arriba-izquierda)
+    (1, -1),  -- Tile superior derecho (arriba-derecha)
+    (0, 0),   -- Tile de colisión izquierdo (posición base)
+    (1, 0)    -- Tile de sombra derecho (derecha del de colisión)
+    ]
+getDestructibleOffsets 1814 = [  -- Vasija
+    (0, 0)    -- Solo un tile
+    ]
+getDestructibleOffsets _ = [(0, 0)]
+
 -- Item que dropea cada objeto
 getLootItem :: Int -> ItemType
 getLootItem 1750 = Curacion    -- Barril -> Poción de curación
