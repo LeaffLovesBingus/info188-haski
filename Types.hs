@@ -91,7 +91,7 @@ data InputState = InputState {
     keyA :: Bool,           -- Izquierda
     keyS :: Bool,           -- Atrás
     keyD :: Bool,           -- Derecha
-    keyB :: Bool,           -- Sprint
+    keyShift :: Bool,           -- Sprint
     keyE :: Bool,           -- Recoger item
     keyQ :: Bool,           -- Tirar item
     key1 :: Bool,           -- Slot 1

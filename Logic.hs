@@ -45,7 +45,7 @@ initialGameState tiles layers collisions = GameState {
         keyA = False,
         keyS = False,
         keyD = False,
-        keyB = False,
+        keyShift = False,
         keyE = False,
         keyQ = False,
         key1 = False,
@@ -115,12 +115,22 @@ handleInputEvent event = do
         EventKey (Char 'a') Up _ _ -> put gs { inputState = inp { keyA = False } }
         EventKey (Char 'd') Down _ _ -> put gs { inputState = inp { keyD = True } }
         EventKey (Char 'd') Up _ _ -> put gs { inputState = inp { keyD = False } }
-        EventKey (Char 'b') Down _ _ -> put gs { inputState = inp { keyB = True } }
-        EventKey (Char 'b') Up _ _ -> put gs { inputState = inp { keyB = False } }
         EventKey (Char 'e') Down _ _ -> put gs { inputState = inp { keyE = True } }
         EventKey (Char 'e') Up _ _ -> put gs { inputState = inp { keyE = False } }
         EventKey (Char 'q') Down _ _ -> put gs { inputState = inp { keyQ = True } }
         EventKey (Char 'q') Up _ _ -> put gs { inputState = inp { keyQ = False } }
+        EventKey (Char 'W') Down _ _ -> put gs { inputState = inp { keyW = True } }
+        EventKey (Char 'W') Up _ _ -> put gs { inputState = inp { keyW = False } }
+        EventKey (Char 'S') Down _ _ -> put gs { inputState = inp { keyS = True } }
+        EventKey (Char 'S') Up _ _ -> put gs { inputState = inp { keyS = False } }
+        EventKey (Char 'A') Down _ _ -> put gs { inputState = inp { keyA = True } }
+        EventKey (Char 'A') Up _ _ -> put gs { inputState = inp { keyA = False } }
+        EventKey (Char 'D') Down _ _ -> put gs { inputState = inp { keyD = True } }
+        EventKey (Char 'D') Up _ _ -> put gs { inputState = inp { keyD = False } }
+        EventKey (Char 'E') Down _ _ -> put gs { inputState = inp { keyE = True } }
+        EventKey (Char 'E') Up _ _ -> put gs { inputState = inp { keyE = False } }
+        EventKey (Char 'Q') Down _ _ -> put gs { inputState = inp { keyQ = True } }
+        EventKey (Char 'Q') Up _ _ -> put gs { inputState = inp { keyQ = False } }
         EventKey (Char '1') Down _ _ -> put gs { inputState = inp { key1 = True } }
         EventKey (Char '1') Up _ _ -> put gs { inputState = inp { key1 = False } }
         EventKey (Char '2') Down _ _ -> put gs { inputState = inp { key2 = True } }
@@ -133,6 +143,8 @@ handleInputEvent event = do
         EventKey (Char '5') Up _ _ -> put gs { inputState = inp { key5 = False } }
         EventKey (MouseButton LeftButton) Down _ pos -> put gs { inputState = inp { mouseClick = True, mousePos = pos } }
         EventKey (MouseButton LeftButton) Up _ _ -> put gs { inputState = inp { mouseClick = False } }
+        EventKey (SpecialKey KeyShiftL) Down _ _ -> put gs { inputState = inp { keyShift = True } }
+        EventKey (SpecialKey KeyShiftL) Up _ _ -> put gs { inputState = inp { keyShift = False } }
         EventMotion pos -> put gs { inputState = inp { mousePos = pos } }
         _ -> return ()
 
@@ -337,7 +349,7 @@ updatePlayerMovement dt = do
     let p = player gs
         inp = inputState gs
         (x, y) = playerPos p
-        speed = if keyB inp then playerSprintSpeed else playerBaseSpeed
+        speed = if keyShift inp then playerSprintSpeed else playerBaseSpeed
         
         dx = (if keyD inp then 1 else 0) - (if keyA inp then 1 else 0)
         dy = (if keyW inp then 1 else 0) - (if keyS inp then 1 else 0)
