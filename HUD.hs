@@ -1,6 +1,7 @@
 module HUD (renderHUD) where
 
-import Assets (heartImage)
+import Assets (heartImage, itemSprites)
+import Data.Array ((!))
 import Data.Maybe (fromMaybe)
 import Graphics.Gloss
 import Types
@@ -37,15 +38,22 @@ renderHUD gs =
   let screenW = fromIntegral screenWidth
       screenH = fromIntegral screenHeight
       hpBarX = -screenW / 2 + 100.0 + 50.0
-      hpBarY = -screenH / 2 + 80.0
+      hpBarY = -screenH / 2 + 60.0
 
       -- Posición para el score (asumiendo top-right como el original)
       scoreX = screenW / 2 - 150.0
       scoreY = screenH / 2 - 50.0
+
+      -- Ítem
+      -- screenW / 2 es el borde derecho. Restamos un margen (ej. 60px)
+      -- -screenH / 2 es el borde inferior. Sumamos un margen (ej. 60px)
+      itemX = screenW / 2 - 60.0
+      itemY = -screenH / 2 + 60.0
    in pictures
         [ translate (hpBarX - 120) hpBarY heartImage,
           translate hpBarX hpBarY $ drawRoundedBar (playerHealth (player gs)),
-          translate scoreX scoreY $ drawScore 0
+          translate scoreX scoreY $ drawScore 0,
+          translate itemX itemY $ drawEquippedItem gs
         ]
 
 -- Barra de vida
@@ -116,3 +124,18 @@ drawScore score =
    in color hudColor $
         scale 0.15 0.15 $
           text ("SCORE: " ++ show score)
+
+-- ARMA EQUIPADA
+--
+drawEquippedItem :: GameState -> Picture
+drawEquippedItem gs =
+  case playerEquippedItem (player gs) of
+    Nothing -> Blank -- Si no hay nada equipado, no dibujar nada
+    Just item ->
+      let -- Obtener ítems de Assets
+          sprite = itemSprites ! item
+       in pictures
+            [ -- Fondo semitransparente (temporal?)
+              color (makeColor 0 0 0 0.5) $ rectangleSolid 50 50,
+              scale 1.6 1.6 sprite
+            ]
