@@ -175,6 +175,7 @@ renderGame gs =
         , renderProjectiles gs
         , renderLayers layersAbove      -- Capas 3,4 (Plantas, Props) - encima del jugador
         , renderCursor gs
+        , renderCooldownBar gs          -- Cooldown de la ballesta
         --, renderDebugCollisions gs      -- Debug
         ]
 
@@ -346,6 +347,43 @@ renderPlayer gs =
     in translate screenX screenY 
         $ scale 2.0 2.0
         $ framePic
+
+
+-- Renderizar la barra de cooldown de la ballesta
+renderCooldownBar :: GameState -> Picture
+renderCooldownBar gs =
+    let p = player gs
+        cam = cameraPos (camera gs)
+        (px, py) = playerPos p
+        screenX = px - fst cam
+        screenY = py - snd cam
+
+        currentCD = playerCooldownBallesta p
+
+        -- Mostrar únicamente si el cooldown está activo
+        hasBallesta = case playerEquippedItem p of
+            Just Ballesta -> True
+            _ -> False
+
+        shouldShow = hasBallesta && currentCD > 0.0
+
+    in if shouldShow
+        then let
+            progress = currentCD / cooldownBallesta
+            fillWidth = cooldownBarWidth * (1.0 - progress)
+
+            barY = screenY + 35
+
+            background = translate screenX barY $
+                        color (makeColor 0.2 0.2 0.2 0.6) $
+                        rectangleSolid cooldownBarWidth cooldownBarHeight
+
+            progressBar = translate (screenX - cooldownBarWidth/2 + fillWidth/2) barY $
+                            color (makeColor 1.0 1.0 1.0 0.6) $
+                            rectangleSolid fillWidth cooldownBarHeight
+
+            in pictures [background, progressBar]
+        else Blank
 
 
 -- Renderizar proyectiles
