@@ -652,8 +652,9 @@ updateBoomerang dt = do
                 newBy = by + bvy * dt
                 newDist = boomerangDistanceTraveled b + sqrt ((bvx * dt) ^ 2 + (bvy * dt) ^ 2)
 
-                -- Comprobar si el boomerang chocó con algo del mundo
-                collided = positionCollidesWithWorld gs (newBx, newBy)
+                -- Comprobar si el boomerang chocó con algo del mundo O con un objeto destructible
+                maybeHitObj = findHitObject (newBx, newBy) (destructibleObjects gs)
+                collided = positionCollidesWithWorld gs (newBx, newBy) || maybeHitObj /= Nothing
 
                 dxToPlayer = px - newBx
                 dyToPlayer = py - newBy
@@ -691,10 +692,24 @@ updateBoomerang dt = do
                         boomerangDistanceTraveled = newDist,
                         boomerangRotation = newRotation
                     }
-                
+
                 finalPlayer = if caught
                     then newPlayer { playerHasBoomerang = True }
                     else newPlayer
-            
-            put gs { boomerang = finalBoomerang, player = finalPlayer }
+
+                -- Si golpeó un objeto destructible, aplicamos daño
+                gsAfterHit = case maybeHitObj of
+                    Nothing -> gs
+                    Just obj ->
+                        let newHealth = destHealth obj - boomerangDamage
+                            updatedObj = obj { destHealth = newHealth }
+                            updatedObjs = map (\o -> if o == obj then updatedObj else o) (destructibleObjects gs)
+                            -- Generar loot si murió
+                            lootItems = if newHealth <= 0 then [createLootItem obj] else []
+                            -- Actualizar capas si se destruyó
+                            updatedLayers = if newHealth <= 0 then foldl removeTileFromLayers (allLayers gs) [obj] else allLayers gs
+                            finalObjs = filter (\o -> destHealth o > 0) updatedObjs
+                        in gs { destructibleObjects = finalObjs, worldItems = worldItems gs ++ lootItems, allLayers = updatedLayers }
+
+            put gsAfterHit { boomerang = finalBoomerang, player = finalPlayer }
            
