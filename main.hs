@@ -18,11 +18,6 @@ main = do
     -- Cargar shapes de colisión desde TSX
     shapesMap <- loadGlobalCollisionShapesFromMap "assets/map/mapa.JSON"
     
-    -- Debug: mostrar GIDs cargados
-    putStrLn $ "Loaded collision GIDs: " ++ show (Map.keys shapesMap)
-    putStrLn $ "Total GIDs with shapes: " ++ show (Map.size shapesMap)
-    putStrLn $ "Total layers: " ++ show (length tileLayersLoaded)
-    
     -- Usar primera capa como tileMap, pero guardar todas las capas
     let allLayerTiles = map snd tileLayersLoaded
         firstLayerTiles = if null allLayerTiles

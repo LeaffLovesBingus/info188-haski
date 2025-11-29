@@ -54,11 +54,67 @@ aabbOverlap :: (Float, Float, Float, Float) -> (Float, Float, Float, Float) -> B
 aabbOverlap (ax, ay, aw, ah) (bx, by, bw, bh) =
     not (ax + aw <= bx || bx + bw <= ax || ay + ah <= by || by + bh <= ay)
 
+-- Verificar si un punto está dentro de un polígono (ray casting)
+pointInPolygon :: (Float, Float) -> [(Float, Float)] -> Bool
+pointInPolygon (px, py) pts =
+    let n = length pts
+        edges = zip pts (drop 1 pts ++ take 1 pts)
+        crossings = length $ filter (rayIntersects (px, py)) edges
+    in odd crossings
+  where
+    rayIntersects (rx, ry) ((x1, y1), (x2, y2))
+        | y1 == y2 = False  -- Horizontal edge
+        | ry < min y1 y2 = False
+        | ry >= max y1 y2 = False
+        | otherwise = 
+            let xIntersect = x1 + (ry - y1) * (x2 - x1) / (y2 - y1)
+            in rx < xIntersect
+
+-- Verificar si un AABB colisiona con un polígono
+-- Usamos: 1) alguna esquina del AABB dentro del polígono, o
+--         2) algún lado del polígono cruza el AABB
+aabbCollidesWithPoly :: (Float, Float, Float, Float) -> [(Float, Float)] -> Bool
+aabbCollidesWithPoly (bx, by, bw, bh) poly =
+    let corners = [(bx, by), (bx + bw, by), (bx, by + bh), (bx + bw, by + bh)]
+        -- Alguna esquina del AABB dentro del polígono
+        cornerInside = any (`pointInPolygon` poly) corners
+        -- Algún vértice del polígono dentro del AABB
+        polyVertexInside = any (pointInAABB (bx, by, bw, bh)) poly
+        -- Algún lado del polígono cruza el AABB
+        edges = zip poly (drop 1 poly ++ take 1 poly)
+        edgeCrossesAABB = any (lineIntersectsAABB (bx, by, bw, bh)) edges
+    in cornerInside || polyVertexInside || edgeCrossesAABB
+
+pointInAABB :: (Float, Float, Float, Float) -> (Float, Float) -> Bool
+pointInAABB (bx, by, bw, bh) (px, py) =
+    px >= bx && px <= bx + bw && py >= by && py <= by + bh
+
+-- Verificar si un segmento de línea intersecta un AABB
+lineIntersectsAABB :: (Float, Float, Float, Float) -> ((Float, Float), (Float, Float)) -> Bool
+lineIntersectsAABB (bx, by, bw, bh) ((x1, y1), (x2, y2)) =
+    let -- Verificar intersección con los 4 lados del AABB
+        left   = lineSegmentsIntersect (x1, y1) (x2, y2) (bx, by) (bx, by + bh)
+        right  = lineSegmentsIntersect (x1, y1) (x2, y2) (bx + bw, by) (bx + bw, by + bh)
+        bottom = lineSegmentsIntersect (x1, y1) (x2, y2) (bx, by) (bx + bw, by)
+        top    = lineSegmentsIntersect (x1, y1) (x2, y2) (bx, by + bh) (bx + bw, by + bh)
+    in left || right || bottom || top
+
+-- Verificar si dos segmentos de línea se intersectan
+lineSegmentsIntersect :: (Float, Float) -> (Float, Float) -> (Float, Float) -> (Float, Float) -> Bool
+lineSegmentsIntersect (x1, y1) (x2, y2) (x3, y3) (x4, y4) =
+    let d = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
+    in if abs d < 0.0001 then False
+       else let t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / d
+                u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / d
+            in t >= 0 && t <= 1 && u >= 0 && u <= 1
+
 -- Verificar colisión del jugador con shapes del mapa
 playerCollidesAt :: GameState -> (Float, Float) -> Bool
 playerCollidesAt gs (px, py) =
     let h = playerCollisionHalfSize
-        playerBox = (px - h, py - h, 2 * h, 2 * h)
+        -- Aplicar offset Y para que la colisión esté en los pies
+        collisionY = py + playerCollisionOffsetY
+        playerBox = (px - h, collisionY - h, 2 * h, 2 * h)
         layers = allLayers gs
         -- Usar primera capa para dimensiones del mapa
         firstLayer = if null layers then [] else head layers
@@ -69,45 +125,46 @@ playerCollidesAt gs (px, py) =
         left = floor ((px - h - tileSize) / tileSize)
         right = ceiling ((px + h + tileSize) / tileSize)
         worldToRow wy = mapH - 1 - floor (wy / tileSize)
-        topRow = worldToRow (py + h + tileSize)
-        bottomRow = worldToRow (py - h - tileSize)
+        topRow = worldToRow (collisionY + h + tileSize)
+        bottomRow = worldToRow (collisionY - h - tileSize)
         
         colsToCheck = [max 0 left .. min (mapW - 1) right]
         rowsToCheck = [max 0 (min topRow bottomRow) .. min (mapH - 1) (max topRow bottomRow)]
         shapesMap = collisionShapes gs
         
-        -- Convertir shape a AABB en coordenadas mundo
-        -- IMPORTANTE: Los tilesets usan tiles de 32x32, pero el juego usa tileSize=64
-        -- Así que las coordenadas de las shapes deben escalarse por 2
+        -- Factor de escala: tilesets son 32x32, juego usa 64x64
         shapeScale :: Float
-        shapeScale = tileSize / 32.0  -- Factor de escala (64/32 = 2)
+        shapeScale = tileSize / 32.0
         
-        shapeToWorldAABB :: Int -> Int -> CollisionShape -> (Float, Float, Float, Float)
-        shapeToWorldAABB col row (CRect sx sy sw sh) =
-            let -- Escalar coordenadas del shape
-                sx' = sx * shapeScale
+        -- Convertir shape a coordenadas mundo
+        shapeToWorld :: Int -> Int -> CollisionShape -> CollisionShape
+        shapeToWorld col row (CRect sx sy sw sh) =
+            let sx' = sx * shapeScale
                 sy' = sy * shapeScale
                 sw' = sw * shapeScale
                 sh' = sh * shapeScale
-                -- Esquina bottom-left del tile en coordenadas mundo
                 tileX = fromIntegral col * tileSize
                 tileY = fromIntegral (mapH - 1 - row) * tileSize
-                -- Convertir Y de Tiled (top-down) a Gloss (bottom-up)
                 worldX = tileX + sx'
                 worldY = tileY + (tileSize - sy' - sh')
-            in (worldX, worldY, sw', sh')
-        shapeToWorldAABB col row (CPoly pts) =
-            let scaledPts = map (\(px, py) -> (px * shapeScale, py * shapeScale)) pts
-                xs = map fst scaledPts
-                ys = map snd scaledPts
-                minx = minimum xs
-                maxx = maximum xs
-                miny = minimum ys
-                maxy = maximum ys
-                tileX = fromIntegral col * tileSize
+            in CRect worldX worldY sw' sh'
+        shapeToWorld col row (CPoly pts) =
+            let tileX = fromIntegral col * tileSize
                 tileY = fromIntegral (mapH - 1 - row) * tileSize
-                worldY = tileY + (tileSize - maxy)
-            in (tileX + minx, worldY, maxx - minx, maxy - miny)
+                -- Los puntos en Tiled están en coordenadas del tile (0,0 = top-left)
+                -- tileY es el BOTTOM del tile en Gloss
+                -- Para convertir: worldY = tileY + (tileSize - pty_scaled)
+                -- donde pty_scaled es la distancia desde el top del tile
+                worldPts = map (\(ptx, pty) -> 
+                    let wx = tileX + ptx * shapeScale
+                        wy = tileY + tileSize - pty * shapeScale
+                    in (wx, wy)) pts
+            in CPoly worldPts
+        
+        -- Verificar colisión entre playerBox y un shape en coordenadas mundo
+        checkShapeCollision :: CollisionShape -> Bool
+        checkShapeCollision (CRect sx sy sw sh) = aabbOverlap playerBox (sx, sy, sw, sh)
+        checkShapeCollision (CPoly pts) = aabbCollidesWithPoly playerBox pts
         
         -- Verificar un tile en una capa específica
         checkTileInLayer :: [[Int]] -> Int -> Int -> Bool
@@ -125,8 +182,8 @@ playerCollidesAt gs (px, py) =
                                 Nothing -> False
                                 Just shapes ->
                                     let validShapes = filter hasValidArea shapes
-                                        boxes = map (shapeToWorldAABB col row) validShapes
-                                    in any (aabbOverlap playerBox) boxes
+                                        worldShapes = map (shapeToWorld col row) validShapes
+                                    in any checkShapeCollision worldShapes
         
         -- Verificar un tile en TODAS las capas
         checkTile :: Int -> Int -> Bool

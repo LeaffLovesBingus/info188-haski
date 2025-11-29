@@ -148,15 +148,63 @@ extractRegion img x y w h
 
 
 -- Renderizar el juego completo
+-- Las capas son: 0=Fondo, 1=Puerta, 2=Escaleras, 3=Plantas, 4=Props
+-- El jugador se dibuja DESPUÉS de la capa 2 (debajo de plantas y props)
 renderGame :: GameState -> Picture
-renderGame gs = pictures 
-    [ renderBackground gs
-    , renderWorldItems gs
-    , renderPlayer gs
-    , renderProjectiles gs
-    , renderCursor gs
-    -- , renderDebugCollisions gs  -- Debug: descomentar para ver cajas de colisión
-    ]
+renderGame gs = 
+    let cam = cameraPos (camera gs)
+        camX = fst cam
+        camY = snd cam
+        
+        -- Obtener las capas
+        allLayersList = if null layersCache
+                        then [("legacy", tileMap gs)]
+                        else map (\(name, tiles) -> (name, tiles)) layersCache
+        
+        -- Dividir capas: las primeras 3 (índices 0,1,2) van debajo del jugador
+        -- las restantes (3,4) van encima
+        (layersBelow, layersAbove) = splitAt 3 allLayersList
+        
+        -- Renderizar capas
+        renderLayers layers = pictures $ map (\(_, tiles) -> renderLayerTiles tiles camX camY) layers
+        
+    in pictures 
+        [ renderLayers layersBelow      -- Capas 0,1,2 (Fondo, Puerta, Escaleras)
+        , renderWorldItems gs
+        , renderPlayer gs               -- Jugador
+        , renderProjectiles gs
+        , renderLayers layersAbove      -- Capas 3,4 (Plantas, Props) - encima del jugador
+        , renderCursor gs
+        --, renderDebugCollisions gs      -- Debug
+        ]
+
+
+-- Renderizar una capa de tiles
+renderLayerTiles :: [[Int]] -> Float -> Float -> Picture
+renderLayerTiles tiles camX camY =
+    let screenWidthF = fromIntegral screenWidth
+        screenHeightF = fromIntegral screenHeight
+        mapH = length tiles
+        
+        leftWorld   = camX - screenWidthF/2
+        rightWorld  = camX + screenWidthF/2
+        topWorld    = camY + screenHeightF/2
+        bottomWorld = camY - screenHeightF/2
+        
+        worldYToRow wy = mapH - 1 - floor (wy / tileSize)
+        
+        minTileX = floor (leftWorld / tileSize) - 1
+        maxTileX = ceiling (rightWorld / tileSize) + 1
+        
+        r1 = worldYToRow topWorld
+        r2 = worldYToRow bottomWorld
+        minTileY = max 0 (min r1 r2 - 1)
+        maxTileY = min (max 0 (mapH - 1)) (max r1 r2 + 1)
+        
+        visibleTiles = [ renderTile tiles x y camX camY
+                       | x <- [minTileX..maxTileX],
+                         y <- [minTileY..maxTileY] ]
+    in pictures visibleTiles
 
 
 -- DEBUG: Renderizar cajas de colisión visibles
@@ -167,6 +215,8 @@ renderDebugCollisions gs =
         camY = snd cam
         (px, py) = playerPos (player gs)
         h = playerCollisionHalfSize
+        -- Posición de colisión con offset (en los pies)
+        collisionY = py + playerCollisionOffsetY
         
         layers = allLayers gs
         firstLayer = if null layers then [] else head layers
@@ -174,17 +224,17 @@ renderDebugCollisions gs =
         
         shapesMap = collisionShapes gs
         
-        -- Dibujar caja del jugador (verde)
-        playerBoxPic = translate (px - camX) (py - camY) $
+        -- Dibujar caja del jugador (verde) - en los pies
+        playerBoxPic = translate (px - camX) (collisionY - camY) $
                        color (makeColor 0 1 0 0.5) $
                        rectangleWire (2 * h) (2 * h)
         
-        -- Convertir shape a AABB (misma lógica que Logic.hs)
-        -- IMPORTANTE: Escalar de 32x32 a 64x64
+        -- Factor de escala
         shapeScale :: Float
         shapeScale = tileSize / 32.0
-        
-        shapeToWorldAABB col row (CRect sx sy sw sh) =
+        -- Convertir shape a coordenadas mundo (igual que Logic.hs)
+        shapeToWorld :: Int -> Int -> CollisionShape -> CollisionShape
+        shapeToWorld col row (CRect sx sy sw sh) =
             let sx' = sx * shapeScale
                 sy' = sy * shapeScale
                 sw' = sw * shapeScale
@@ -193,31 +243,37 @@ renderDebugCollisions gs =
                 tileY = fromIntegral (mapH - 1 - row) * tileSize
                 worldX = tileX + sx'
                 worldY = tileY + (tileSize - sy' - sh')
-            in (worldX, worldY, sw', sh')
-        shapeToWorldAABB col row (CPoly pts) =
-            let scaledPts = map (\(px, py) -> (px * shapeScale, py * shapeScale)) pts
-                xs = map fst scaledPts
-                ys = map snd scaledPts
-                minx = minimum xs
-                maxx = maximum xs
-                miny = minimum ys
-                maxy = maximum ys
-                tileX = fromIntegral col * tileSize
+            in CRect worldX worldY sw' sh'
+        shapeToWorld col row (CPoly pts) =
+            let tileX = fromIntegral col * tileSize
                 tileY = fromIntegral (mapH - 1 - row) * tileSize
-                worldY = tileY + (tileSize - maxy)
-            in (tileX + minx, worldY, maxx - minx, maxy - miny)
+                -- Los puntos en Tiled están en coordenadas del tile (0,0 = top-left)
+                -- tileY es el BOTTOM del tile en Gloss
+                worldPts = map (\(ptx, pty) -> 
+                    let wx = tileX + ptx * shapeScale
+                        wy = tileY + tileSize - pty * shapeScale
+                    in (wx, wy)) pts
+            in CPoly worldPts
+        
+        -- Dibujar un shape en coordenadas mundo
+        drawShape :: CollisionShape -> Picture
+        drawShape (CRect wx wy ww wh) =
+            translate (wx + ww/2 - camX) (wy + wh/2 - camY) $
+            color (makeColor 1 0 0 0.3) $
+            rectangleSolid ww wh
+        drawShape (CPoly pts) =
+            let screenPts = map (\(wx, wy) -> (wx - camX, wy - camY)) pts
+            in color (makeColor 1 0.5 0 0.4) $ polygon screenPts
         
         -- Rango visible
-        visibleCols = [floor ((px - 200) / tileSize) .. ceiling ((px + 200) / tileSize)]
+        visibleCols = [floor ((px - 300) / tileSize) .. ceiling ((px + 300) / tileSize)]
         visibleRows = [0 .. mapH - 1]
         
         normalizeGid gid = gid .&. 0x1FFFFFFF
         
         -- Dibujar todas las collision shapes visibles
         collisionPics = 
-            [ translate (bx + bw/2 - camX) (by + bh/2 - camY) $
-              color (makeColor 1 0 0 0.3) $
-              rectangleSolid bw bh
+            [ drawShape worldShape
             | layer <- layers
             , row <- visibleRows
             , row < length layer
@@ -228,60 +284,14 @@ renderDebugCollisions gs =
             , gid > 0
             , Just shapes <- [Map.lookup gid shapesMap]
             , shape <- shapes
-            , let (bx, by, bw, bh) = shapeToWorldAABB col row shape
-            , bw > 0.5 && bh > 0.5
+            , hasValidArea shape
+            , let worldShape = shapeToWorld col row shape
             ]
         
+        hasValidArea (CRect _ _ w h) = w > 0.5 && h > 0.5
+        hasValidArea (CPoly pts) = length pts >= 3
+        
     in pictures (playerBoxPic : collisionPics)
-
-
--- Renderizar el fondo con tiles (AHORA dibuja todas las tile layers en orden)
-renderBackground :: GameState -> Picture
-renderBackground gs =
-    let cam = cameraPos (camera gs)
-        camX = fst cam
-        camY = snd cam
-
-        -- elegir capas: las del mapa si existen, si no usar el tileMap del estado (fallback)
-        layersToDraw :: [(String, [[Int]])]
-        layersToDraw = if null layersCache
-                       then [("legacy", tileMap gs)]
-                       else map (\(_, tiles) -> ("", tiles)) layersCache
-
-        -- función que dibuja una capa completa
-        renderLayerTiles :: [[Int]] -> Picture
-        renderLayerTiles tiles =
-            let screenWidthF = fromIntegral screenWidth
-                screenHeightF = fromIntegral screenHeight
-
-                -- número de filas del mapa (para convertir índices Tiled(top-origin) <-> mundo (bottom-origin))
-                mapH = length tiles
-
-                -- límites en coordenadas mundo visibles
-                leftWorld   = camX - screenWidthF/2
-                rightWorld  = camX + screenWidthF/2
-                topWorld    = camY + screenHeightF/2
-                bottomWorld = camY - screenHeightF/2
-
-                -- convertir coordenadas mundo a índices de fila (rango de filas Tiled: 0..mapH-1, 0 = top)
-                worldYToRow wy = mapH - 1 - floor (wy / tileSize)
-
-                minTileX = floor (leftWorld / tileSize) - 1
-                maxTileX = ceiling (rightWorld / tileSize) + 1
-
-                r1 = worldYToRow topWorld
-                r2 = worldYToRow bottomWorld
-                minTileY = max 0 (min r1 r2 - 1)
-                maxTileY = min (max 0 (mapH - 1)) (max r1 r2 + 1)
-
-                visibleTiles = [ renderTile tiles x y camX camY
-                               | x <- [minTileX..maxTileX],
-                                 y <- [minTileY..maxTileY] ]
-            in pictures visibleTiles
-
-        layerPics = map (\(_, tiles) -> renderLayerTiles tiles) layersToDraw
-
-    in pictures layerPics
 
 
 -- Renderiza un tile individual

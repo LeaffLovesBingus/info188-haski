@@ -109,7 +109,11 @@ playerBaseHealth :: Int
 playerBaseHealth = 100
 
 playerCollisionHalfSize :: Float
-playerCollisionHalfSize = 18.0  -- Mitad del tamaño de colisión del jugador (40x40 píxeles, escalado con sprite 3x)
+playerCollisionHalfSize = 14.0  -- Mitad del tamaño de colisión del jugador (28x28 píxeles)
+
+-- Offset Y de la colisión del jugador (negativo = más abajo, hacia los pies)
+playerCollisionOffsetY :: Float
+playerCollisionOffsetY = -20.0  -- Bajar la colisión hacia los pies del sprite
 
 cameraSmoothing :: Float
 cameraSmoothing = 0.15

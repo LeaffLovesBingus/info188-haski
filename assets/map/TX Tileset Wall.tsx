@@ -244,8 +244,7 @@
  </tile>
  <tile id="102">
   <objectgroup draworder="index" id="2">
-   <object id="1" x="0" y="0" width="32" height="32"/>
-   <object id="2" x="0" y="0" width="32" height="32"/>
+   <object id="3" x="0" y="0" width="32" height="32"/>
   </objectgroup>
  </tile>
  <tile id="113">
@@ -270,8 +269,7 @@
  </tile>
  <tile id="118">
   <objectgroup draworder="index" id="2">
-   <object id="1" x="0" y="0" width="32" height="32"/>
-   <object id="2" x="0" y="0" width="32" height="32"/>
+   <object id="3" x="0" y="0" width="32" height="32"/>
   </objectgroup>
  </tile>
  <tile id="145">

@@ -177,8 +177,11 @@ loadGlobalCollisionShapesFromMap jsonPath = do
                                     Just (String srcTxt) -> do
                                         let tsxPath = takeDirectory jsonPath </> T.unpack srcTxt
                                         localShapes <- parseTSXCollisionShapes tsxPath
-                                        -- Convertir IDs locales a GIDs globales
+                                        -- Debug: mostrar qué se cargó
                                         let globalShapes = Map.mapKeys (+ firstgid) localShapes
+                                        if Map.size localShapes > 0
+                                            then putStrLn $ "  TSX " ++ T.unpack srcTxt ++ " (firstgid=" ++ show firstgid ++ "): " ++ show (Map.size localShapes) ++ " tiles con colisión"
+                                            else return ()
                                         return globalShapes
                                     _ -> return Map.empty
                             _ -> return Map.empty
@@ -247,13 +250,32 @@ parseObject objTxt =
         mw = getAttr "width" >>= readMaybe . T.unpack :: Maybe Float
         mh = getAttr "height" >>= readMaybe . T.unpack :: Maybe Float
         mPoints = getAttr "points"
+        mRotation = getAttr "rotation" >>= readMaybe . T.unpack :: Maybe Float
+        
+        -- Offset del objeto (default 0,0)
+        ox = fromMaybe 0 mx
+        oy = fromMaybe 0 my
+        -- Rotación en grados (convertir a radianes)
+        rotDeg = fromMaybe 0 mRotation
+        rotRad = rotDeg * pi / 180.0
+        
+        -- Rotar un punto alrededor del origen (0,0) del objeto
+        rotatePoint :: (Float, Float) -> (Float, Float)
+        rotatePoint (px, py) =
+            let cosR = cos rotRad
+                sinR = sin rotRad
+            in (px * cosR - py * sinR, px * sinR + py * cosR)
+        
     in case mPoints of
-        -- Es un polígono
+        -- Es un polígono - los puntos son relativos al (x,y) del objeto
         Just ptsTxt ->
             let pairs = T.splitOn (T.pack " ") ptsTxt
                 parsePair p = case T.splitOn (T.pack ",") p of
                     [a, b] -> case (readMaybe (T.unpack a), readMaybe (T.unpack b)) of
-                        (Just px, Just py) -> Just (px, py)
+                        (Just px, Just py) -> 
+                            -- Rotar el punto y luego sumar el offset
+                            let (rx, ry) = rotatePoint (px, py)
+                            in Just (ox + rx, oy + ry)
                         _ -> Nothing
                     _ -> Nothing
                 pts = mapMaybe parsePair pairs
