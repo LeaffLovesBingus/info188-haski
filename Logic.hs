@@ -25,6 +25,7 @@ initialGameState tiles layers collisions = GameState {
     },
     camera = Camera { cameraPos = spawnAtTile 25 25, cameraTarget = spawnAtTile 25 25 },
     projectiles = [],
+    worldItems = [
     boomerang = Nothing,
     worldItems = [ -- Items de ejemplo
         WorldItem { itemPos = spawnAtTile 23 27, itemType = Ballesta, itemFloatTime = 0 },
@@ -35,6 +36,7 @@ initialGameState tiles layers collisions = GameState {
         WorldItem { itemPos = spawnAtTile 28 27, itemType = Velocidad, itemFloatTime = 0 },
         WorldItem { itemPos = spawnAtTile 29 27, itemType = Stamina, itemFloatTime = 0 }
     ],
+    destructibleObjects = [],
     inputState = InputState {
         keyW = False,
         keyA = False,
@@ -52,6 +54,43 @@ initialGameState tiles layers collisions = GameState {
     randomSeed = 42
 }
 
+-- NUEVO: Escanear el mapa y encontrar objetos destructibles
+scanForDestructibles :: GameState -> GameState
+scanForDestructibles gs = 
+    let layers = allLayers gs
+        shapesMap = collisionShapes gs
+        
+        -- Buscar en TODAS las capas
+        foundObjects = concat [scanLayer layer layerIdx | (layer, layerIdx) <- zip layers [0..]]
+        
+        scanLayer layer layerIdx =
+            let mapH = length layer
+                mapW = if null layer then 0 else length (head layer)
+            in concat [scanTile layer mapH col row shapesMap | 
+                row <- [0..mapH-1], 
+                col <- [0..mapW-1]]
+        
+        scanTile layer mapH col row shapesMap =
+            if row >= length layer || col >= length (layer !! row)
+            then []
+            else
+                let rawGid = (layer !! row) !! col
+                    gid = normalizeGid rawGid
+                in if gid `elem` destructibleGids && Map.member gid shapesMap
+                   then [createDestructible col row mapH gid]
+                   else []
+        
+        createDestructible col row mapH gid =
+            let worldX = fromIntegral col * tileSize + tileSize / 2
+                worldY = fromIntegral (mapH - 1 - row) * tileSize + tileSize / 2
+            in DestructibleObject {
+                destPos = (worldX, worldY),
+                destHealth = getMaxHealth gid,
+                destMaxHealth = getMaxHealth gid,
+                destGid = gid,
+                destTilePos = (col, row)
+            }
+    in gs { destructibleObjects = foundObjects }
 
 -- Manejar input
 handleInputEvent :: Event -> State GameState ()
@@ -76,7 +115,6 @@ handleInputEvent event = do
         EventMotion pos -> put gs { inputState = inp { mousePos = pos } }
         _ -> return ()
 
-
 -- Actualizar juego
 updateGame :: Float -> State GameState ()
 updateGame dt = do
@@ -85,6 +123,7 @@ updateGame dt = do
     updatePlayerCooldowns dt
     updateBoomerang dt
     updateProjectiles dt
+    checkProjectileCollisions dt
     updateWorldItems dt
     handleItemPickup
     resetMouseClick
@@ -97,8 +136,7 @@ resetMouseClick = do
     let inp = inputState gs
     put gs { inputState = inp { mouseClick = False } }
 
-
--- Normalizar GID (quitar flags de flip de Tiled)
+-- Normalizar GID
 normalizeGid :: Int -> Int
 normalizeGid gid = gid .&. 0x1FFFFFFF
 
@@ -107,33 +145,27 @@ aabbOverlap :: (Float, Float, Float, Float) -> (Float, Float, Float, Float) -> B
 aabbOverlap (ax, ay, aw, ah) (bx, by, bw, bh) =
     not (ax + aw <= bx || bx + bw <= ax || ay + ah <= by || by + bh <= ay)
 
--- Verificar si un punto está dentro de un polígono (ray casting)
+-- Verificar si un punto está dentro de un polígono
 pointInPolygon :: (Float, Float) -> [(Float, Float)] -> Bool
 pointInPolygon (px, py) pts =
-    let n = length pts
-        edges = zip pts (drop 1 pts ++ take 1 pts)
+    let edges = zip pts (drop 1 pts ++ take 1 pts)
         crossings = length $ filter (rayIntersects (px, py)) edges
     in odd crossings
   where
     rayIntersects (rx, ry) ((x1, y1), (x2, y2))
-        | y1 == y2 = False  -- Horizontal edge
+        | y1 == y2 = False
         | ry < min y1 y2 = False
         | ry >= max y1 y2 = False
         | otherwise = 
             let xIntersect = x1 + (ry - y1) * (x2 - x1) / (y2 - y1)
             in rx < xIntersect
 
--- Verificar si un AABB colisiona con un polígono
--- Usamos: 1) alguna esquina del AABB dentro del polígono, o
---         2) algún lado del polígono cruza el AABB
+-- Verificar colisión AABB con polígono
 aabbCollidesWithPoly :: (Float, Float, Float, Float) -> [(Float, Float)] -> Bool
 aabbCollidesWithPoly (bx, by, bw, bh) poly =
     let corners = [(bx, by), (bx + bw, by), (bx, by + bh), (bx + bw, by + bh)]
-        -- Alguna esquina del AABB dentro del polígono
         cornerInside = any (`pointInPolygon` poly) corners
-        -- Algún vértice del polígono dentro del AABB
         polyVertexInside = any (pointInAABB (bx, by, bw, bh)) poly
-        -- Algún lado del polígono cruza el AABB
         edges = zip poly (drop 1 poly ++ take 1 poly)
         edgeCrossesAABB = any (lineIntersectsAABB (bx, by, bw, bh)) edges
     in cornerInside || polyVertexInside || edgeCrossesAABB
@@ -142,17 +174,14 @@ pointInAABB :: (Float, Float, Float, Float) -> (Float, Float) -> Bool
 pointInAABB (bx, by, bw, bh) (px, py) =
     px >= bx && px <= bx + bw && py >= by && py <= by + bh
 
--- Verificar si un segmento de línea intersecta un AABB
 lineIntersectsAABB :: (Float, Float, Float, Float) -> ((Float, Float), (Float, Float)) -> Bool
 lineIntersectsAABB (bx, by, bw, bh) ((x1, y1), (x2, y2)) =
-    let -- Verificar intersección con los 4 lados del AABB
-        left   = lineSegmentsIntersect (x1, y1) (x2, y2) (bx, by) (bx, by + bh)
+    let left   = lineSegmentsIntersect (x1, y1) (x2, y2) (bx, by) (bx, by + bh)
         right  = lineSegmentsIntersect (x1, y1) (x2, y2) (bx + bw, by) (bx + bw, by + bh)
         bottom = lineSegmentsIntersect (x1, y1) (x2, y2) (bx, by) (bx + bw, by)
         top    = lineSegmentsIntersect (x1, y1) (x2, y2) (bx, by + bh) (bx + bw, by + bh)
     in left || right || bottom || top
 
--- Verificar si dos segmentos de línea se intersectan
 lineSegmentsIntersect :: (Float, Float) -> (Float, Float) -> (Float, Float) -> (Float, Float) -> Bool
 lineSegmentsIntersect (x1, y1) (x2, y2) (x3, y3) (x4, y4) =
     let d = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
@@ -161,20 +190,75 @@ lineSegmentsIntersect (x1, y1) (x2, y2) (x3, y3) (x4, y4) =
                 u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / d
             in t >= 0 && t <= 1 && u >= 0 && u <= 1
 
--- Verificar colisión del jugador con shapes del mapa
-playerCollidesAt :: GameState -> (Float, Float) -> Bool
-playerCollidesAt gs (px, py) =
-    let h = playerCollisionHalfSize
-        -- Aplicar offset Y para que la colisión esté en los pies
-        collisionY = py + playerCollisionOffsetY
-        playerBox = (px - h, collisionY - h, 2 * h, 2 * h)
-        layers = allLayers gs
-        -- Usar primera capa para dimensiones del mapa
+-- Verificar si un punto colisiona con collision shapes del mapa
+pointCollidesWithMap :: GameState -> (Float, Float) -> Bool
+pointCollidesWithMap gs (px, py) =
+    let layers = allLayers gs
         firstLayer = if null layers then [] else head layers
         mapH = length firstLayer
         mapW = if null firstLayer then 0 else length (head firstLayer)
         
-        -- Rango de tiles a verificar (expandido para cubrir más área)
+        col = floor (px / tileSize)
+        row = mapH - 1 - floor (py / tileSize)
+        
+        shapesMap = collisionShapes gs
+        shapeScale = tileSize / 32.0
+        
+        checkLayer layer =
+            if row < 0 || row >= length layer || col < 0 || col >= length (layer !! row)
+            then False
+            else
+                let rawGid = (layer !! row) !! col
+                    gid = normalizeGid rawGid
+                in if gid <= 0 then False
+                   else case Map.lookup gid shapesMap of
+                       Nothing -> False
+                       Just shapes ->
+                           let validShapes = filter hasValidArea shapes
+                               worldShapes = map (shapeToWorld col row mapH shapeScale) validShapes
+                           in any (pointInShape (px, py)) worldShapes
+        
+        pointInShape (ptx, pty) (CRect sx sy sw sh) =
+            ptx >= sx && ptx <= sx + sw && pty >= sy && pty <= sy + sh
+        pointInShape pt (CPoly pts) = pointInPolygon pt pts
+        
+        hasValidArea (CRect _ _ w h) = w > 0.5 && h > 0.5
+        hasValidArea (CPoly pts) = length pts >= 3
+        
+    in any checkLayer layers
+
+-- Convertir shape a coordenadas mundo
+shapeToWorld :: Int -> Int -> Int -> Float -> CollisionShape -> CollisionShape
+shapeToWorld col row mapH shapeScale (CRect sx sy sw sh) =
+    let sx' = sx * shapeScale
+        sy' = sy * shapeScale
+        sw' = sw * shapeScale
+        sh' = sh * shapeScale
+        tileX = fromIntegral col * tileSize
+        tileY = fromIntegral (mapH - 1 - row) * tileSize
+        worldX = tileX + sx'
+        worldY = tileY + (tileSize - sy' - sh')
+    in CRect worldX worldY sw' sh'
+shapeToWorld col row mapH shapeScale (CPoly pts) =
+    let tileX = fromIntegral col * tileSize
+        tileY = fromIntegral (mapH - 1 - row) * tileSize
+        worldPts = map (\(ptx, pty) -> 
+            let wx = tileX + ptx * shapeScale
+                wy = tileY + tileSize - pty * shapeScale
+            in (wx, wy)) pts
+    in CPoly worldPts
+
+-- Verificar colisión del jugador
+playerCollidesAt :: GameState -> (Float, Float) -> Bool
+playerCollidesAt gs (px, py) =
+    let h = playerCollisionHalfSize
+        collisionY = py + playerCollisionOffsetY
+        playerBox = (px - h, collisionY - h, 2 * h, 2 * h)
+        layers = allLayers gs
+        firstLayer = if null layers then [] else head layers
+        mapH = length firstLayer
+        mapW = if null firstLayer then 0 else length (head firstLayer)
+        
         left = floor ((px - h - tileSize) / tileSize)
         right = ceiling ((px + h + tileSize) / tileSize)
         worldToRow wy = mapH - 1 - floor (wy / tileSize)
@@ -185,41 +269,12 @@ playerCollidesAt gs (px, py) =
         rowsToCheck = [max 0 (min topRow bottomRow) .. min (mapH - 1) (max topRow bottomRow)]
         shapesMap = collisionShapes gs
         
-        -- Factor de escala: tilesets son 32x32, juego usa 64x64
-        shapeScale :: Float
         shapeScale = tileSize / 32.0
         
-        -- Convertir shape a coordenadas mundo
-        shapeToWorld :: Int -> Int -> CollisionShape -> CollisionShape
-        shapeToWorld col row (CRect sx sy sw sh) =
-            let sx' = sx * shapeScale
-                sy' = sy * shapeScale
-                sw' = sw * shapeScale
-                sh' = sh * shapeScale
-                tileX = fromIntegral col * tileSize
-                tileY = fromIntegral (mapH - 1 - row) * tileSize
-                worldX = tileX + sx'
-                worldY = tileY + (tileSize - sy' - sh')
-            in CRect worldX worldY sw' sh'
-        shapeToWorld col row (CPoly pts) =
-            let tileX = fromIntegral col * tileSize
-                tileY = fromIntegral (mapH - 1 - row) * tileSize
-                -- Los puntos en Tiled están en coordenadas del tile (0,0 = top-left)
-                -- tileY es el BOTTOM del tile en Gloss
-                -- Para convertir: worldY = tileY + (tileSize - pty_scaled)
-                -- donde pty_scaled es la distancia desde el top del tile
-                worldPts = map (\(ptx, pty) -> 
-                    let wx = tileX + ptx * shapeScale
-                        wy = tileY + tileSize - pty * shapeScale
-                    in (wx, wy)) pts
-            in CPoly worldPts
-        
-        -- Verificar colisión entre playerBox y un shape en coordenadas mundo
         checkShapeCollision :: CollisionShape -> Bool
         checkShapeCollision (CRect sx sy sw sh) = aabbOverlap playerBox (sx, sy, sw, sh)
         checkShapeCollision (CPoly pts) = aabbCollidesWithPoly playerBox pts
         
-        -- Verificar un tile en una capa específica
         checkTileInLayer :: [[Int]] -> Int -> Int -> Bool
         checkTileInLayer layer col row =
             if row < 0 || row >= length layer || col < 0 
@@ -235,10 +290,9 @@ playerCollidesAt gs (px, py) =
                                 Nothing -> False
                                 Just shapes ->
                                     let validShapes = filter hasValidArea shapes
-                                        worldShapes = map (shapeToWorld col row) validShapes
+                                        worldShapes = map (shapeToWorld col row mapH shapeScale) validShapes
                                     in any checkShapeCollision worldShapes
         
-        -- Verificar un tile en TODAS las capas
         checkTile :: Int -> Int -> Bool
         checkTile col row = any (\layer -> checkTileInLayer layer col row) layers
         
@@ -248,12 +302,11 @@ playerCollidesAt gs (px, py) =
     
     in or [checkTile c r | c <- colsToCheck, r <- rowsToCheck]
 
--- Spawn de entidad/item en coordenadas de tile
+-- Spawn de entidad en coordenadas de tile
 spawnAtTile :: Int -> Int -> (Float, Float)
 spawnAtTile col row = (fromIntegral col * tileSize, fromIntegral row * tileSize)
 
-
--- Actualizar movimiento del jugador CON COLISIONES
+-- Actualizar movimiento del jugador
 updatePlayerMovement :: Float -> State GameState ()
 updatePlayerMovement dt = do
     gs <- get
@@ -262,24 +315,19 @@ updatePlayerMovement dt = do
         (x, y) = playerPos p
         speed = if keyB inp then playerSprintSpeed else playerBaseSpeed
         
-        -- Calcular dirección de movimiento (usando los nombres correctos de campos)
         dx = (if keyD inp then 1 else 0) - (if keyA inp then 1 else 0)
         dy = (if keyW inp then 1 else 0) - (if keyS inp then 1 else 0)
         
         isMoving = dx /= 0 || dy /= 0
         
-        -- Normalizar diagonal
         len = sqrt (dx * dx + dy * dy)
         (ndx, ndy) = if len > 0 then (dx / len, dy / len) else (0, 0)
         
-        -- Nueva velocidad
         newVel = if isMoving then (ndx * speed, ndy * speed) else (0, 0)
         
-        -- Calcular posición candidata
         candidateX = x + ndx * speed * dt
         candidateY = y + ndy * speed * dt
         
-        -- Probar movimiento en X e Y por separado para permitir deslizamiento
         canMoveX = not (playerCollidesAt gs (candidateX, y))
         canMoveY = not (playerCollidesAt gs (x, candidateY))
         
@@ -288,25 +336,21 @@ updatePlayerMovement dt = do
         
         finalPos = (finalX, finalY)
         
-        -- Actualizar dirección del sprite
         newDir = if not isMoving then playerDir p
                  else if abs dx > abs dy
                       then if dx > 0 then DirRight else DirLeft
                       else if dy > 0 then DirUp else DirDown
         
-        -- Actualizar animación
         newAnimTime = playerAnimTime p + dt
 
         (finalFrame, finalAnimTime) = if isMoving 
             then
-                -- Animación de caminar (8 fps, 1 frame cada 0.125 s)
                 let frameTime = 0.125
                     totalFrames = 4
                 in if newAnimTime >= frameTime
                     then ((playerFrame p + 1) `mod` totalFrames, newAnimTime - frameTime)
                     else (playerFrame p, newAnimTime)
             else 
-                -- Animación de idle (2 fps, 1 frame cada 0.5 s)
                 let frameTime = 0.5
                     totalFrames = 2
                 in if newAnimTime >= frameTime
@@ -323,7 +367,7 @@ updatePlayerMovement dt = do
     
     put gs { player = newPlayer }
 
--- Actualizar cámara para seguir al jugador (con límites del mapa)
+-- Actualizar cámara
 updateCamera :: Float -> State GameState ()
 updateCamera dt = do
     gs <- get
@@ -331,21 +375,17 @@ updateCamera dt = do
         cam = camera gs
         currentPos = cameraPos cam
         
-        -- Dimensiones del mapa
         layers = allLayers gs
         firstLayer = if null layers then [] else head layers
         mapH = length firstLayer
         mapW = if null firstLayer then 0 else length (head firstLayer)
         
-        -- Tamaño del mapa en píxeles
         mapWidthPx = fromIntegral mapW * tileSize
         mapHeightPx = fromIntegral mapH * tileSize
         
-        -- Mitad de la pantalla
         halfScreenW = fromIntegral screenWidth / 2
         halfScreenH = fromIntegral screenHeight / 2
 
-        -- Interpolación lineal hacia la posición del jugador
         lerpFactor = 1.0 - (1.0 - cameraSmoothing) ** (dt * 60.0)
 
         (cx, cy) = currentPos
@@ -354,10 +394,8 @@ updateCamera dt = do
         newX = cx + (px - cx) * lerpFactor
         newY = cy + (py - cy) * lerpFactor
         
-        -- Limitar la cámara a los bordes del mapa
-        -- La cámara no puede mostrar más allá de los límites
         clampedX = if mapWidthPx <= fromIntegral screenWidth
-                   then mapWidthPx / 2  -- Centrar si el mapa es más pequeño que la pantalla
+                   then mapWidthPx / 2
                    else max halfScreenW (min (mapWidthPx - halfScreenW) newX)
         clampedY = if mapHeightPx <= fromIntegral screenHeight
                    then mapHeightPx / 2
@@ -366,7 +404,6 @@ updateCamera dt = do
         newCam = cam { cameraPos = (clampedX, clampedY), cameraTarget = pPos }
         
     put gs { camera = newCam }
-
 
 -- Actualizar proyectiles
 updateProjectiles :: Float -> State GameState ()
@@ -378,19 +415,15 @@ updateProjectiles dt = do
         cam = cameraPos (camera gs)
         (mx, my) = mousePos inp
         
-        -- Convertir posición del mouse a coordenadas mundo
         worldMouseX = mx + fst cam
         worldMouseY = my + snd cam
 
-        -- Verificar si el jugador tiene equipada la ballesta
         hasBallesta = case playerEquippedItem p of
             Just Ballesta -> True
             _ -> False
 
-        -- Verificar el cooldown de la ballesta
         canShoot = playerCooldownBallesta p <= 0.0
         
-        -- Crear nuevo proyectil si está disparando (usando mouseClick)
         (newProjs, newPlayer) = if mouseClick inp && hasBallesta && canShoot
                    then let dx = worldMouseX - px
                             dy = worldMouseY - py
@@ -402,12 +435,10 @@ updateProjectiles dt = do
                                 projVel = (ndx * projSpeed, ndy * projSpeed),
                                 projLifetime = projectileLifetime
                             }
-
-                            updatedPlayer = p { playerCooldownBallesta = cooldownBallesta } -- Actualizar el cooldown en el jugador
+                            updatedPlayer = p { playerCooldownBallesta = cooldownBallesta }
                         in (newProj : projectiles gs, updatedPlayer)
                    else (projectiles gs, p)
         
-        -- Actualizar posiciones y filtrar proyectiles expirados
         updatedProjs = filter (\proj -> projLifetime proj > 0) $
                        map (\proj -> 
                            let (vx, vy) = projVel proj
@@ -420,8 +451,88 @@ updateProjectiles dt = do
     
     put gs { projectiles = updatedProjs, player = newPlayer }
 
+-- NUEVO: Verificar colisiones de proyectiles
+checkProjectileCollisions :: Float -> State GameState ()
+checkProjectileCollisions dt = do
+    gs <- get
+    let projs = projectiles gs
+        objs = destructibleObjects gs
+        
+        -- Filtrar proyectiles que colisionan
+        -- checkProj usa `gs`, así que se define aquí dentro
+        checkProj (projsAcc, objsAcc, itemsAcc) proj =
+            let (px, py) = projPos proj
+                hitMap = pointCollidesWithMap gs (px, py)
+                maybeHitObj = findHitObject (px, py) objsAcc
+            in case maybeHitObj of
+                Just obj ->
+                    let newHealth = destHealth obj - arrowDamage
+                        updatedObj = obj { destHealth = newHealth }
+                        updatedObjs = map (\o -> if o == obj then updatedObj else o) objsAcc
+                    in (projsAcc, updatedObjs, itemsAcc)
+                Nothing -> if hitMap then (projsAcc, objsAcc, itemsAcc) else (proj : projsAcc, objsAcc, itemsAcc)
 
--- Actualizar la barra de cooldown sobre el jugador
+        (survivingProjs, damagedObjs, newItems) = foldl checkProj ([], objs, []) projs
+        
+        -- Filtrar objetos destruidos y actualizar mapa
+        (aliveObjs, destroyedObjs) = span (\obj -> destHealth obj > 0) damagedObjs
+        finalObjs = filter (\obj -> destHealth obj > 0) damagedObjs
+        
+        -- Generar items de loot
+        lootItems = [createLootItem obj | obj <- damagedObjs, destHealth obj <= 0]
+        
+        -- Eliminar tiles destruidos
+        updatedLayers = foldl removeTileFromLayers (allLayers gs) 
+                        [obj | obj <- damagedObjs, destHealth obj <= 0]
+    
+    put gs {
+        projectiles = survivingProjs,
+        destructibleObjects = finalObjs,
+        worldItems = worldItems gs ++ lootItems,
+        allLayers = updatedLayers
+    }
+
+-- Encontrar objeto destructible en una posición
+findHitObject :: (Float, Float) -> [DestructibleObject] -> Maybe DestructibleObject
+findHitObject (px, py) objs =
+    let hits = filter (\obj -> 
+            let (ox, oy) = destPos obj
+                dist = sqrt ((px - ox) ** 2 + (py - oy) ** 2)
+            in dist < tileSize * 0.8  -- Radio de colisión
+            ) objs
+    in if null hits then Nothing else Just (head hits)
+
+-- Crear item de loot
+createLootItem :: DestructibleObject -> WorldItem
+createLootItem obj = WorldItem {
+    itemPos = destPos obj,
+    itemType = getLootItem (destGid obj),
+    itemFloatTime = 0
+}
+
+-- Eliminar SOLO los tiles en las posiciones específicas del objeto
+removeTileFromLayers :: [[[Int]]] -> DestructibleObject -> [[[Int]]]
+removeTileFromLayers layers obj =
+    let (baseCol, baseRow) = destTilePos obj
+        offsets = getDestructibleOffsets (destGid obj)
+        positionsToRemove = map (\(offsetX, offsetY) -> (baseCol + offsetX, baseRow + offsetY)) offsets
+        background = if null layers then [] else head layers
+
+        replaceInLayer :: Int -> [[Int]] -> [[Int]]
+        replaceInLayer idx layer
+            | idx == 0 = layer  -- keep background layer as-is
+            | otherwise =
+                [ [ if (c, r) `elem` positionsToRemove
+                      then if r < length background && c < length (background !! r)
+                           then (background !! r) !! c
+                           else 0
+                      else gid
+                  | (c, gid) <- zip [0..] rowData ]
+                | (r, rowData) <- zip [0..] layer ]
+
+    in zipWith replaceInLayer [0..] layers
+
+-- Actualizar cooldowns
 updatePlayerCooldowns :: Float -> State GameState ()
 updatePlayerCooldowns dt = do
     gs <- get
@@ -431,8 +542,7 @@ updatePlayerCooldowns dt = do
         newPlayer = p { playerCooldownBallesta = newCD }
     put gs { player = newPlayer }
 
-
--- Actualizar la animación de flote de los items en el mundo
+-- Actualizar animación de items
 updateWorldItems :: Float -> State GameState ()
 updateWorldItems dt = do
     gs <- get
@@ -440,8 +550,7 @@ updateWorldItems dt = do
         updatedItems = map (\item -> item { itemFloatTime = itemFloatTime item + dt }) items
     put gs { worldItems = updatedItems }
 
-
--- Manejar la recogida de items
+-- Manejar recogida de items
 handleItemPickup :: State GameState ()
 handleItemPickup = do
     gs <- get
@@ -472,6 +581,7 @@ handleItemPickup = do
                     , inputState = inp { keyE = False }
                     }
 
+            [] -> return ()
             [] -> return ()
     
 
