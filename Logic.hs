@@ -303,13 +303,27 @@ updatePlayerMovement dt = do
     
     put gs { player = newPlayer }
 
--- Actualizar cámara para seguir al jugador
+-- Actualizar cámara para seguir al jugador (con límites del mapa)
 updateCamera :: Float -> State GameState ()
 updateCamera dt = do
     gs <- get
     let pPos = playerPos (player gs)
         cam = camera gs
         currentPos = cameraPos cam
+        
+        -- Dimensiones del mapa
+        layers = allLayers gs
+        firstLayer = if null layers then [] else head layers
+        mapH = length firstLayer
+        mapW = if null firstLayer then 0 else length (head firstLayer)
+        
+        -- Tamaño del mapa en píxeles
+        mapWidthPx = fromIntegral mapW * tileSize
+        mapHeightPx = fromIntegral mapH * tileSize
+        
+        -- Mitad de la pantalla
+        halfScreenW = fromIntegral screenWidth / 2
+        halfScreenH = fromIntegral screenHeight / 2
 
         -- Interpolación lineal hacia la posición del jugador
         lerpFactor = 1.0 - (1.0 - cameraSmoothing) ** (dt * 60.0)
@@ -319,8 +333,17 @@ updateCamera dt = do
 
         newX = cx + (px - cx) * lerpFactor
         newY = cy + (py - cy) * lerpFactor
+        
+        -- Limitar la cámara a los bordes del mapa
+        -- La cámara no puede mostrar más allá de los límites
+        clampedX = if mapWidthPx <= fromIntegral screenWidth
+                   then mapWidthPx / 2  -- Centrar si el mapa es más pequeño que la pantalla
+                   else max halfScreenW (min (mapWidthPx - halfScreenW) newX)
+        clampedY = if mapHeightPx <= fromIntegral screenHeight
+                   then mapHeightPx / 2
+                   else max halfScreenH (min (mapHeightPx - halfScreenH) newY)
 
-        newCam = cam { cameraPos = (newX, newY), cameraTarget = pPos }
+        newCam = cam { cameraPos = (clampedX, clampedY), cameraTarget = pPos }
         
     put gs { camera = newCam }
 
