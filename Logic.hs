@@ -25,7 +25,6 @@ initialGameState tiles layers collisions = GameState {
     },
     camera = Camera { cameraPos = spawnAtTile 25 25, cameraTarget = spawnAtTile 25 25 },
     projectiles = [],
-    worldItems = [
     boomerang = Nothing,
     worldItems = [ -- Items de ejemplo
         WorldItem { itemPos = spawnAtTile 23 27, itemType = Ballesta, itemFloatTime = 0 },
@@ -523,9 +522,7 @@ removeTileFromLayers layers obj =
             | idx == 0 = layer  -- keep background layer as-is
             | otherwise =
                 [ [ if (c, r) `elem` positionsToRemove
-                      then if r < length background && c < length (background !! r)
-                           then (background !! r) !! c
-                           else 0
+                      then 0  -- make tile empty so underlying layers (background) show through
                       else gid
                   | (c, gid) <- zip [0..] rowData ]
                 | (r, rowData) <- zip [0..] layer ]

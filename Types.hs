@@ -193,21 +193,6 @@ playerCollisionOffsetY :: Float
 playerCollisionOffsetY = -20.0
 
 
-itemFloatSpeed :: Float
-itemFloatSpeed = 2.0
-
-itemFloatHeight :: Float
-itemFloatHeight = 8.0
-
-cooldownBallesta :: Float
-cooldownBallesta = 0.8
-
-cooldownBarWidth :: Float
-cooldownBarWidth = 50.0
-
-cooldownBarHeight :: Float
-cooldownBarHeight = 4.0
-
 -- CONFIGURACIÓN DE OBJETOS DESTRUCTIBLES
 -- GIDs de los objetos destructibles (ids de colisión)
 destructibleGids :: [Int]

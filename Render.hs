@@ -354,8 +354,7 @@ renderWorldItems gs =
               [ translate screenX screenY $ scale 1.0 1.0 $ itemPic,
                 itemText
               ]
-   in pictures (map renderItem items)
-   in pictures (map renderItem items)
+  in pictures (map renderItem items)
 
 
 -- Renderizar el boomerang
