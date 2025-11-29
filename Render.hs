@@ -12,7 +12,7 @@ import Data.Maybe (fromMaybe)
 import Data.Ord (comparing)
 import Graphics.Gloss
 import Graphics.Gloss.Juicy
-import HUD (renderHUD)
+import HUD.Rendering (renderHUD)
 import MapLoader (CollisionShape (..), TileLayer, TilesetInfo, loadMapFromJSON)
 import System.FilePath (normalise)
 import System.IO.Unsafe (unsafePerformIO)
