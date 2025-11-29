@@ -19,7 +19,8 @@ initialGameState tiles layers collisions = GameState {
         playerDir = DirDown, 
         playerFrame = 0, 
         playerAnimTime = 0,
-        playerEquippedItem = Nothing
+        playerEquippedItem = Nothing,
+        playerCooldownBallesta = 0.0
     },
     camera = Camera { cameraPos = spawnAtTile 25 25, cameraTarget = spawnAtTile 25 25 },
     projectiles = [],
@@ -48,6 +49,42 @@ initialGameState tiles layers collisions = GameState {
     collisionShapes = Map.empty,
     randomSeed = 42
 }
+
+
+-- Manejar input
+handleInputEvent :: Event -> State GameState ()
+handleInputEvent event = do
+    gs <- get
+    let inp = inputState gs
+    case event of
+        EventKey (Char 'w') Down _ _ -> put gs { inputState = inp { keyW = True } }
+        EventKey (Char 'w') Up _ _ -> put gs { inputState = inp { keyW = False } }
+        EventKey (Char 's') Down _ _ -> put gs { inputState = inp { keyS = True } }
+        EventKey (Char 's') Up _ _ -> put gs { inputState = inp { keyS = False } }
+        EventKey (Char 'a') Down _ _ -> put gs { inputState = inp { keyA = True } }
+        EventKey (Char 'a') Up _ _ -> put gs { inputState = inp { keyA = False } }
+        EventKey (Char 'd') Down _ _ -> put gs { inputState = inp { keyD = True } }
+        EventKey (Char 'd') Up _ _ -> put gs { inputState = inp { keyD = False } }
+        EventKey (Char 'b') Down _ _ -> put gs { inputState = inp { keyB = True } }
+        EventKey (Char 'b') Up _ _ -> put gs { inputState = inp { keyB = False } }
+        EventKey (Char 'e') Down _ _ -> put gs { inputState = inp { keyE = True } }
+        EventKey (Char 'e') Up _ _ -> put gs { inputState = inp { keyE = False } }
+        EventKey (MouseButton LeftButton) Down _ pos -> put gs { inputState = inp { mouseClick = True, mousePos = pos } }
+        EventKey (MouseButton LeftButton) Up _ _ -> put gs { inputState = inp { mouseClick = False } }
+        EventMotion pos -> put gs { inputState = inp { mousePos = pos } }
+        _ -> return ()
+
+
+-- Actualizar juego
+updateGame :: Float -> State GameState ()
+updateGame dt = do
+    updatePlayerMovement dt
+    updateCamera dt
+    updatePlayerCooldowns dt
+    updateProjectiles dt
+    updateWorldItems dt
+    handleItemPickup
+
 
 -- Normalizar GID (quitar flags de flip de Tiled)
 normalizeGid :: Int -> Int
@@ -203,35 +240,6 @@ playerCollidesAt gs (px, py) =
 spawnAtTile :: Int -> Int -> (Float, Float)
 spawnAtTile col row = (fromIntegral col * tileSize, fromIntegral row * tileSize)
 
--- Manejar input
-handleInputEvent :: Event -> State GameState ()
-handleInputEvent event = do
-    gs <- get
-    let inp = inputState gs
-    case event of
-        EventKey (Char 'w') Down _ _ -> put gs { inputState = inp { keyW = True } }
-        EventKey (Char 'w') Up _ _ -> put gs { inputState = inp { keyW = False } }
-        EventKey (Char 's') Down _ _ -> put gs { inputState = inp { keyS = True } }
-        EventKey (Char 's') Up _ _ -> put gs { inputState = inp { keyS = False } }
-        EventKey (Char 'a') Down _ _ -> put gs { inputState = inp { keyA = True } }
-        EventKey (Char 'a') Up _ _ -> put gs { inputState = inp { keyA = False } }
-        EventKey (Char 'd') Down _ _ -> put gs { inputState = inp { keyD = True } }
-        EventKey (Char 'd') Up _ _ -> put gs { inputState = inp { keyD = False } }
-        EventKey (Char 'e') Down _ _ -> put gs { inputState = inp { keyE = True } }
-        EventKey (Char 'e') Up _ _ -> put gs { inputState = inp { keyE = False } }
-        EventKey (MouseButton LeftButton) Down _ pos -> put gs { inputState = inp { mouseClick = True, mousePos = pos } }
-        EventKey (MouseButton LeftButton) Up _ _ -> put gs { inputState = inp { mouseClick = False } }
-        EventMotion pos -> put gs { inputState = inp { mousePos = pos } }
-        _ -> return ()
-
--- Actualizar juego
-updateGame :: Float -> State GameState ()
-updateGame dt = do
-    updatePlayerMovement dt
-    updateCamera dt
-    updateProjectiles dt
-    updateWorldItems dt
-    handleItemPickup
 
 -- Actualizar movimiento del jugador CON COLISIONES
 updatePlayerMovement :: Float -> State GameState ()
@@ -240,7 +248,7 @@ updatePlayerMovement dt = do
     let p = player gs
         inp = inputState gs
         (x, y) = playerPos p
-        speed = playerSpeed p
+        speed = if keyB inp then playerSprintSpeed else playerBaseSpeed
         
         -- Calcular dirección de movimiento (usando los nombres correctos de campos)
         dx = (if keyD inp then 1 else 0) - (if keyA inp then 1 else 0)
@@ -361,21 +369,31 @@ updateProjectiles dt = do
         -- Convertir posición del mouse a coordenadas mundo
         worldMouseX = mx + fst cam
         worldMouseY = my + snd cam
+
+        -- Verificar si el jugador tiene equipada la ballesta
+        hasBallesta = case playerEquippedItem p of
+            Just Ballesta -> True
+            _ -> False
+
+        -- Verificar el cooldown de la ballesta
+        canShoot = playerCooldownBallesta p <= 0.0
         
         -- Crear nuevo proyectil si está disparando (usando mouseClick)
-        newProjs = if mouseClick inp
+        (newProjs, newPlayer) = if mouseClick inp && hasBallesta && canShoot
                    then let dx = worldMouseX - px
                             dy = worldMouseY - py
                             len = sqrt (dx * dx + dy * dy)
                             (ndx, ndy) = if len > 0 then (dx / len, dy / len) else (1, 0)
-                            projSpeed = 500.0
+                            projSpeed = projectileSpeed
                             newProj = Projectile {
                                 projPos = (px, py),
                                 projVel = (ndx * projSpeed, ndy * projSpeed),
-                                projLifetime = 2.0
+                                projLifetime = projectileLifetime
                             }
-                        in newProj : projectiles gs
-                   else projectiles gs
+
+                            updatedPlayer = p { playerCooldownBallesta = cooldownBallesta } -- Actualizar el cooldown en el jugador
+                        in (newProj : projectiles gs, updatedPlayer)
+                   else (projectiles gs, p)
         
         -- Actualizar posiciones y filtrar proyectiles expirados
         updatedProjs = filter (\proj -> projLifetime proj > 0) $
@@ -388,7 +406,18 @@ updateProjectiles dt = do
                            }
                        ) newProjs
     
-    put gs { projectiles = updatedProjs, inputState = inp { mouseClick = False } }
+    put gs { projectiles = updatedProjs, player = newPlayer, inputState = inp { mouseClick = False } }
+
+
+-- Actualizar la barra de cooldown sobre el jugador
+updatePlayerCooldowns :: Float -> State GameState ()
+updatePlayerCooldowns dt = do
+    gs <- get
+    let p = player gs
+        currentCD = playerCooldownBallesta p
+        newCD = max 0.0 (currentCD - dt)
+        newPlayer = p { playerCooldownBallesta = newCD }
+    put gs { player = newPlayer }
 
 
 -- Actualizar la animación de flote de los items en el mundo

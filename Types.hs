@@ -36,7 +36,8 @@ data Player = Player {
     playerDir :: Direction,
     playerFrame :: Int,
     playerAnimTime :: Float,
-    playerEquippedItem :: Maybe ItemType
+    playerEquippedItem :: Maybe ItemType,
+    playerCooldownBallesta :: Float
 } deriving (Show)
 
 
@@ -94,16 +95,24 @@ screenHeight :: Int
 screenHeight = 720
 
 projectileSpeed :: Float
-projectileSpeed = 800
+projectileSpeed = 1200
 
 projectileLifetime :: Float
 projectileLifetime = 1.5
+
+-- DAÑO QUE VA A INFLINGIR LA FLECHA
+arrowDamage :: Float
+arrowDamage = 60 -- suponiendo que el enemigo tenga 100 de vida
+
+-- Daño que va a inflingir el boomerang
+boomerangDamage :: Float
+boomerangDamage = 40
 
 playerBaseSpeed :: Float
 playerBaseSpeed = 350
 
 playerSprintSpeed :: Float
-playerSprintSpeed = 550
+playerSprintSpeed = 500
 
 playerBaseHealth :: Int
 playerBaseHealth = 100
@@ -126,6 +135,15 @@ itemFloatSpeed = 2.0
 
 itemFloatHeight :: Float
 itemFloatHeight = 8.0
+
+cooldownBallesta :: Float
+cooldownBallesta = 0.8
+
+cooldownBarWidth :: Float
+cooldownBarWidth = 50.0
+
+cooldownBarHeight :: Float
+cooldownBarHeight = 4.0 
 
 -- Nombre de cada item en String
 itemName :: ItemType -> String
