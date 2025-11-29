@@ -146,10 +146,10 @@ renderGame gs =
       renderLayers layers = pictures $ map (\(_, tiles) -> renderLayerTiles tiles camX camY) layers
    in pictures
         [ renderLayers layersBelow,
-          renderWorldItems gs,
+          renderLayers layersAbove,
           renderPlayer gs,
           renderProjectiles gs,
-          renderLayers layersAbove,
+          renderWorldItems gs,
           renderDestructibleHealthBars gs,  -- BARRAS DE VIDA (dibujar encima de props)
           renderCursor gs,
           renderCooldownBar gs,

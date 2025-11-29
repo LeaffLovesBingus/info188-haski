@@ -502,15 +502,22 @@ removeTileFromLayers :: [[[Int]]] -> DestructibleObject -> [[[Int]]]
 removeTileFromLayers layers obj =
     let (baseCol, baseRow) = destTilePos obj
         offsets = getDestructibleOffsets (destGid obj)
-        positionsToRemove = map (\(offsetX, offsetY) -> 
-            (baseCol + offsetX, baseRow + offsetY)) offsets
-    in map (removePositionsFromLayer positionsToRemove) layers
+        positionsToRemove = map (\(offsetX, offsetY) -> (baseCol + offsetX, baseRow + offsetY)) offsets
+        background = if null layers then [] else head layers
 
-removePositionsFromLayer :: [TileCoord] -> [[Int]] -> [[Int]]
-removePositionsFromLayer positions layer =
-    [[if (c, r) `elem` positions then 0 else gid
-      | (c, gid) <- zip [0..] rowData]
-     | (r, rowData) <- zip [0..] layer]
+        replaceInLayer :: Int -> [[Int]] -> [[Int]]
+        replaceInLayer idx layer
+            | idx == 0 = layer  -- keep background layer as-is
+            | otherwise =
+                [ [ if (c, r) `elem` positionsToRemove
+                      then if r < length background && c < length (background !! r)
+                           then (background !! r) !! c
+                           else 0
+                      else gid
+                  | (c, gid) <- zip [0..] rowData ]
+                | (r, rowData) <- zip [0..] layer ]
+
+    in zipWith replaceInLayer [0..] layers
 
 -- Actualizar cooldowns
 updatePlayerCooldowns :: Float -> State GameState ()
