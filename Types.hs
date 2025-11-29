@@ -16,7 +16,7 @@ data Direction = DirDown | DirRight | DirUp | DirLeft
 data AnimType = Idle | Walk 
     deriving (Eq, Ord, Show, Ix, Bounded)
 
-data ItemType = Ballesta | Boomerang | Espada
+data ItemType = Ballesta | Boomerang | Espada | Curacion | Velocidad | Stamina | Fuerza
     deriving (Eq, Ord, Show, Ix, Bounded)
 
 -- Proyectil
@@ -132,3 +132,7 @@ itemName :: ItemType -> String
 itemName Ballesta = "Ballesta"
 itemName Boomerang = "Boomerang"
 itemName Espada = "Espada"
+itemName Curacion = "Pocion de curacion"
+itemName Velocidad = "Pocion de velocidad"
+itemName Stamina = "Pocion de stamina"
+itemName Fuerza = "Pocion de fuerza"

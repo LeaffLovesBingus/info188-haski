@@ -24,9 +24,13 @@ initialGameState tiles layers collisions = GameState {
     camera = Camera { cameraPos = spawnAtTile 25 25, cameraTarget = spawnAtTile 25 25 },
     projectiles = [],
     worldItems = [ -- Items de ejemplo
-        WorldItem { itemPos = spawnAtTile 27 25, itemType = Ballesta, itemFloatTime = 0 },
-        WorldItem { itemPos = spawnAtTile 23 25, itemType = Boomerang, itemFloatTime = 0 },
-        WorldItem { itemPos = spawnAtTile 25 27, itemType = Espada, itemFloatTime = 0 }
+        WorldItem { itemPos = spawnAtTile 23 27, itemType = Ballesta, itemFloatTime = 0 },
+        WorldItem { itemPos = spawnAtTile 24 27, itemType = Boomerang, itemFloatTime = 0 },
+        WorldItem { itemPos = spawnAtTile 25 27, itemType = Espada, itemFloatTime = 0 },
+        WorldItem { itemPos = spawnAtTile 26 27, itemType = Curacion, itemFloatTime = 0 },
+        WorldItem { itemPos = spawnAtTile 27 27, itemType = Fuerza, itemFloatTime = 0 },
+        WorldItem { itemPos = spawnAtTile 28 27, itemType = Velocidad, itemFloatTime = 0 },
+        WorldItem { itemPos = spawnAtTile 29 27, itemType = Stamina, itemFloatTime = 0 }
     ],
     inputState = InputState {
         keyW = False,
