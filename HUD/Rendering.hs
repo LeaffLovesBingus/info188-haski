@@ -8,6 +8,7 @@ import Types
 import HUD.Constants
 import HUD.HealthBar
 import HUD.Score
+import HUD.Inventory (drawInventory)
 
 
 -- Render HUD completo
@@ -31,5 +32,6 @@ renderHUD gs =
    in pictures
         [ translate (hpBarX - 120) hpBarY heartImage,
           translate hpBarX hpBarY $ drawHealthBar (playerHealth (player gs)),
-          translate scoreX scoreY $ drawScore 0
+          translate scoreX scoreY $ drawScore 0,
+          drawInventory (player gs)
         ]

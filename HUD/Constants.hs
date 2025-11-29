@@ -7,8 +7,8 @@ import Graphics.Gloss
 hudColor :: Color
 hudColor = white
 
-hudDarkColor :: Color -- #c63737
-hudDarkColor = makeColor 0.776 0.216 0.216 1.0
+hudDarkColor :: Color -- #2c1c2b
+hudDarkColor = makeColor 0.1725 0.1098 0.1686 1.0
 
 healthBarColorBottom :: Color -- #ac3232
 healthBarColorBottom = makeColor 0.6745 0.1961 0.1961 1.0
