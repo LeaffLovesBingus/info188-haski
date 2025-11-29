@@ -30,10 +30,11 @@ initialGameState tiles layers collisions = GameState {
     camera = Camera { cameraPos = spawnAtTile 25 25, cameraTarget = spawnAtTile 25 25 },
     projectiles = [],
     boomerang = Nothing,
-    worldItems = [ -- Items de ejemplo
-        WorldItem { itemPos = spawnAtTile 23 27, itemType = Ballesta, itemFloatTime = 0 },
-        WorldItem { itemPos = spawnAtTile 24 27, itemType = Boomerang, itemFloatTime = 0 },
-        WorldItem { itemPos = spawnAtTile 25 27, itemType = Espada, itemFloatTime = 0 },
+    worldItems = [
+        WorldItem { itemPos = spawnAtTileCenter 53 27, itemType = Ballesta, itemFloatTime = 0 },
+        WorldItem { itemPos = spawnAtTileCenter 50 32, itemType = Boomerang, itemFloatTime = 0 },
+        WorldItem { itemPos = spawnAtTileCenter 47 27, itemType = Espada, itemFloatTime = 0 },
+        -- Items de ejemplo
         WorldItem { itemPos = spawnAtTile 26 27, itemType = Curacion, itemFloatTime = 0 },
         WorldItem { itemPos = spawnAtTile 27 27, itemType = Fuerza, itemFloatTime = 0 },
         WorldItem { itemPos = spawnAtTile 28 27, itemType = Velocidad, itemFloatTime = 0 },
@@ -141,6 +142,16 @@ handleInputEvent event = do
         EventKey (Char '4') Up _ _ -> put gs { inputState = inp { key4 = False } }
         EventKey (Char '5') Down _ _ -> put gs { inputState = inp { key5 = True } }
         EventKey (Char '5') Up _ _ -> put gs { inputState = inp { key5 = False } }
+        EventKey (Char '!') Down _ _ -> put gs { inputState = inp { key1 = True } }
+        EventKey (Char '!') Up _ _ -> put gs { inputState = inp { key1 = False } }
+        EventKey (Char '"') Down _ _ -> put gs { inputState = inp { key2 = True } }
+        EventKey (Char '"') Up _ _ -> put gs { inputState = inp { key2 = False } }
+        EventKey (Char '#') Down _ _ -> put gs { inputState = inp { key3 = True } }
+        EventKey (Char '#') Up _ _ -> put gs { inputState = inp { key3 = False } }
+        EventKey (Char '$') Down _ _ -> put gs { inputState = inp { key4 = True } }
+        EventKey (Char '$') Up _ _ -> put gs { inputState = inp { key4 = False } }
+        EventKey (Char '%') Down _ _ -> put gs { inputState = inp { key5 = True } }
+        EventKey (Char '%') Up _ _ -> put gs { inputState = inp { key5 = False } }
         EventKey (MouseButton LeftButton) Down _ pos -> put gs { inputState = inp { mouseClick = True, mousePos = pos } }
         EventKey (MouseButton LeftButton) Up _ _ -> put gs { inputState = inp { mouseClick = False } }
         EventKey (SpecialKey KeyShiftL) Down _ _ -> put gs { inputState = inp { keyShift = True } }
@@ -338,9 +349,13 @@ playerCollidesAt gs (px, py) =
     
     in or [checkTile c r | c <- colsToCheck, r <- rowsToCheck]
 
--- Spawn de entidad en coordenadas de tile
+-- Spawn de entidad en coordenadas de tile (DEVUELVE LA ESQUINA SUPERIOR IZQUIERDA DEL TILE)
 spawnAtTile :: Int -> Int -> (Float, Float)
 spawnAtTile col row = (fromIntegral col * tileSize, fromIntegral row * tileSize)
+
+-- Spawn de entidad en coordenadas de tile (DEVUELVE EL CENTRO DEL TILE)
+spawnAtTileCenter :: Int -> Int -> (Float, Float)
+spawnAtTileCenter col row = ((fromIntegral col * tileSize) + tileSize/2, (fromIntegral row * tileSize) + tileSize/2)
 
 -- Actualizar movimiento del jugador
 updatePlayerMovement :: Float -> State GameState ()
