@@ -9,18 +9,23 @@
     ],
     "fileStates": {
         "TX Plant with Shadow.tsx": {
-            "scaleInDock": 1
+            "scaleInDock": 1,
+            "scaleInEditor": 1
         },
         "TX Plant.tsx": {
-            "scaleInDock": 1,
+            "scaleInDock": 0.5,
             "scaleInEditor": 1
         },
         "TX Player.tsx": {
             "scaleInDock": 1,
-            "scaleInEditor": 3
+            "scaleInEditor": 1
+        },
+        "TX Props with Shadow.tsx": {
+            "scaleInDock": 1,
+            "scaleInEditor": 1
         },
         "TX Props.tsx": {
-            "scaleInDock": 1,
+            "scaleInDock": 0.75,
             "scaleInEditor": 1
         },
         "TX Shadow Plant.tsx": {
@@ -40,7 +45,7 @@
             "scaleInEditor": 1
         },
         "TX Tileset Stone Ground.tsx": {
-            "scaleInDock": 1,
+            "scaleInDock": 1.5,
             "scaleInEditor": 1
         },
         "TX Tileset Wall.tsx": {
@@ -49,10 +54,10 @@
         },
         "mapa.tmx": {
             "scale": 1,
-            "selectedLayer": 0,
+            "selectedLayer": 4,
             "viewCenter": {
-                "x": 1451.5,
-                "y": 1535
+                "x": 444.5,
+                "y": 568
             }
         }
     },
@@ -68,20 +73,24 @@
         "TX Tileset Wall.tsx",
         "TX Plant.tsx",
         "TX Player.tsx",
-        "TX Props.tsx",
         "TX Shadow Plant.tsx",
         "TX Shadow.tsx",
         "TX Tileset Grass.tsx",
-        "TX Tileset Stone Ground.tsx"
+        "TX Tileset Stone Ground.tsx",
+        "TX Plant with Shadow.tsx",
+        "TX Props.tsx",
+        "TX Props with Shadow.tsx"
     ],
     "project": "mapa.tiled-project",
     "recentFiles": [
         "mapa.tmx",
+        "TX Props with Shadow.tsx",
+        "TX Props.tsx",
+        "TX Plant with Shadow.tsx",
         "TX Tileset Stone Ground.tsx",
         "TX Tileset Grass.tsx",
         "TX Shadow.tsx",
         "TX Shadow Plant.tsx",
-        "TX Props.tsx",
         "TX Player.tsx",
         "TX Plant.tsx",
         "TX Tileset Wall.tsx",

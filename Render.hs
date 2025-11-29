@@ -175,7 +175,7 @@ renderGame gs =
           renderCursor gs,
           renderCooldownBar gs, -- Cooldown de la ballesta
           renderHUD gs
-          -- , renderDebugCollisions gs      -- Debug
+        --, renderDebugCollisions gs      -- Debug
         ]
 
 -- Renderizar una capa de tiles
