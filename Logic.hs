@@ -21,7 +21,11 @@ initialGameState tiles layers collisions = GameState {
         playerAnimTime = 0,
         playerEquippedItem = Nothing,
         playerCooldownBallesta = 0.0,
-        playerHasBoomerang = True
+        playerHasBoomerang = True,
+        playerInventory = replicate inventorySize Nothing,
+        playerSelectedSlot = 0,
+        playerItemFlashTimer = 0.0,
+        playerItemFlashState = NoFlash
     },
     camera = Camera { cameraPos = spawnAtTile 25 25, cameraTarget = spawnAtTile 25 25 },
     projectiles = [],
@@ -43,8 +47,16 @@ initialGameState tiles layers collisions = GameState {
         keyD = False,
         keyB = False,
         keyE = False,
+        keyQ = False,
+        key1 = False,
+        key2 = False,
+        key3 = False,
+        key4 = False,
+        key5 = False,
         mousePos = (0, 0),
-        mouseClick = False
+        mouseClick = False,
+        scrollUp = False,
+        scrollDown = False
     },
     tileMap = tiles,
     allLayers = layers,
@@ -109,14 +121,32 @@ handleInputEvent event = do
         EventKey (Char 'b') Up _ _ -> put gs { inputState = inp { keyB = False } }
         EventKey (Char 'e') Down _ _ -> put gs { inputState = inp { keyE = True } }
         EventKey (Char 'e') Up _ _ -> put gs { inputState = inp { keyE = False } }
+        EventKey (Char 'q') Down _ _ -> put gs { inputState = inp { keyQ = True } }
+        EventKey (Char 'q') Up _ _ -> put gs { inputState = inp { keyQ = False } }
+        EventKey (Char '1') Down _ _ -> put gs { inputState = inp { key1 = True } }
+        EventKey (Char '1') Up _ _ -> put gs { inputState = inp { key1 = False } }
+        EventKey (Char '2') Down _ _ -> put gs { inputState = inp { key2 = True } }
+        EventKey (Char '2') Up _ _ -> put gs { inputState = inp { key2 = False } }
+        EventKey (Char '3') Down _ _ -> put gs { inputState = inp { key3 = True } }
+        EventKey (Char '3') Up _ _ -> put gs { inputState = inp { key3 = False } }
+        EventKey (Char '4') Down _ _ -> put gs { inputState = inp { key4 = True } }
+        EventKey (Char '4') Up _ _ -> put gs { inputState = inp { key4 = False } }
+        EventKey (Char '5') Down _ _ -> put gs { inputState = inp { key5 = True } }
+        EventKey (Char '5') Up _ _ -> put gs { inputState = inp { key5 = False } }
         EventKey (MouseButton LeftButton) Down _ pos -> put gs { inputState = inp { mouseClick = True, mousePos = pos } }
         EventKey (MouseButton LeftButton) Up _ _ -> put gs { inputState = inp { mouseClick = False } }
+        EventKey (MouseButton WheelUp) Down _ _ -> put gs { inputState = inp { scrollUp = True } }
+        EventKey (MouseButton WheelUp) Up _ _ -> put gs { inputState = inp { scrollUp = False } }
+        EventKey (MouseButton WheelDown) Down _ _ -> put gs { inputState = inp { scrollDown = True } }
+        EventKey (MouseButton WheelDown) Up _ _ -> put gs { inputState = inp { scrollDown = False } }
         EventMotion pos -> put gs { inputState = inp { mousePos = pos } }
         _ -> return ()
 
 -- Actualizar juego
 updateGame :: Float -> State GameState ()
 updateGame dt = do
+    handleSlotSelection         -- Selección de slots con teclado y scrollwheel
+    handleItemDrop              -- Soltar items con Q
     updatePlayerMovement dt
     updateCamera dt
     updatePlayerCooldowns dt
@@ -125,6 +155,7 @@ updateGame dt = do
     checkProjectileCollisions dt
     updateWorldItems dt
     handleItemPickup
+    updateItemFlash dt          -- Nombre del item cuando lo recoges / seleccionas
     resetMouseClick
 
 
@@ -547,7 +578,19 @@ updateWorldItems dt = do
         updatedItems = map (\item -> item { itemFloatTime = itemFloatTime item + dt }) items
     put gs { worldItems = updatedItems }
 
--- Manejar recogida de items
+
+-- Buscar primer slot vacío del inventario
+findEmptySlot :: [Maybe ItemType] -> Int -> Maybe Int
+findEmptySlot [] _ = Nothing
+findEmptySlot (slot:rest) idx = case slot of
+    Nothing -> Just idx
+    Just _ -> findEmptySlot rest (idx + 1)
+
+
+-- INVENTARIO
+
+
+-- Manejar la recogida de items
 handleItemPickup :: State GameState ()
 handleItemPickup = do
     gs <- get
@@ -568,19 +611,208 @@ handleItemPickup = do
 
         case nearbyItems of
             (item:_) -> do
-                let newPlayer = case itemType item of
-                        Boomerang -> p { playerEquippedItem = Just (itemType item), playerHasBoomerang = True }
-                        _ -> p { playerEquippedItem = Just (itemType item) }
-                    remaining = filter (/= item) items
-                put gs
-                    { player = newPlayer
-                    , worldItems = remaining
-                    , inputState = inp { keyE = False }
-                    }
+                let inventory = playerInventory p
+                    itemToAdd = itemType item
+                    
+                    -- Buscar primer slot vacío
+                    findEmptySlot :: [Maybe ItemType] -> Int -> Maybe Int
+                    findEmptySlot [] _ = Nothing
+                    findEmptySlot (slot:rest) idx = case slot of
+                        Nothing -> Just idx
+                        Just _ -> findEmptySlot rest (idx + 1)
+                    
+                    emptySlotIdx = findEmptySlot inventory 0
+                
+                case emptySlotIdx of
+                    -- Hay un slot vacío, añadir el item ahí
+                    Just idx -> do
+                        let newInventory = updateInventoryAt idx (Just itemToAdd) inventory
+                            -- Actualizar el boomerang flag si es necesario
+                            hasBoomerang' = itemToAdd == Boomerang || playerHasBoomerang p
+                            newPlayer = p { 
+                                playerInventory = newInventory,
+                                playerSelectedSlot = idx,  -- Cambiar al slot donde se añadió
+                                playerEquippedItem = Just itemToAdd,  -- Equipar el nuevo item
+                                playerHasBoomerang = hasBoomerang',
+                                playerItemFlashState = Showing itemToAdd,
+                                playerItemFlashTimer = itemNameFlashDuration
+                            }
+                            remaining = filter (/= item) items
+                        
+                        put gs { player = newPlayer, worldItems = remaining, inputState = inp { keyE = False } }
+                    
+                    -- No hay slots vacíos, reemplazar el slot actual
+                    Nothing -> do
+                        let currentSlot = playerSelectedSlot p
+                            oldItem = inventory !! currentSlot
+                            newInventory = updateInventoryAt currentSlot (Just itemToAdd) inventory
+                            hasBoomerang' = itemToAdd == Boomerang || 
+                                           (playerHasBoomerang p && oldItem /= Just Boomerang)
+                            newPlayer = p { 
+                                playerInventory = newInventory,
+                                playerEquippedItem = Just itemToAdd,
+                                playerHasBoomerang = hasBoomerang',
+                                playerItemFlashState = Showing itemToAdd,
+                                playerItemFlashTimer = itemNameFlashDuration
+                            }
+                            
+                            -- Crear el item que se dropea
+                            droppedItem = case oldItem of
+                                Just iType -> WorldItem { 
+                                    itemPos = (px, py), 
+                                    itemType = iType, 
+                                    itemFloatTime = 0 
+                                }
+                                Nothing -> item  -- No debería pasar, pero por seguridad
+                            
+                            remaining = filter (/= item) items
+                            newItems = droppedItem : remaining
+                        
+                        put gs { player = newPlayer, worldItems = newItems, inputState = inp { keyE = False } }
 
             [] -> return ()
-            [] -> return ()
+    where
+        updateInventoryAt :: Int -> Maybe ItemType -> [Maybe ItemType] -> [Maybe ItemType]
+        updateInventoryAt _ _ [] = []
+        updateInventoryAt 0 newItem (_:rest) = newItem : rest
+        updateInventoryAt n newItem (x:rest) = x : updateInventoryAt (n-1) newItem rest
     
+    
+
+-- Manejar selección de slots con teclado y scrollwheel
+handleSlotSelection :: State GameState ()
+handleSlotSelection = do
+    gs <- get
+    let inp = inputState gs
+        p = player gs
+        currentSlot = playerSelectedSlot p
+        inventory = playerInventory p
+        
+        -- Determinar nuevo slot basado en input
+        newSlotMaybe = if key1 inp then Just 0
+                       else if key2 inp then Just 1
+                       else if key3 inp then Just 2
+                       else if key4 inp then Just 3
+                       else if key5 inp then Just 4
+                       else if scrollUp inp then Just ((currentSlot + 1) `mod` inventorySize)
+                       else if scrollDown inp then Just ((currentSlot - 1 + inventorySize) `mod` inventorySize)
+                       else Nothing
+    
+    case newSlotMaybe of
+        Nothing -> return ()
+        Just newSlot -> when (newSlot /= currentSlot) $ do
+            let newEquippedItem = inventory !! newSlot
+                -- Resetear flash si cambia de slot
+                (newFlashState, newFlashTimer) = case newEquippedItem of
+                    Just iType -> (Showing iType, itemNameFlashDuration)
+                    Nothing -> (NoFlash, 0)
+                
+                newPlayer = p {
+                    playerSelectedSlot = newSlot,
+                    playerEquippedItem = newEquippedItem,
+                    playerItemFlashState = newFlashState,
+                    playerItemFlashTimer = newFlashTimer
+                }
+                
+                -- Resetear las teclas de input
+                newInput = inp { 
+                    key1 = False, key2 = False, key3 = False, 
+                    key4 = False, key5 = False,
+                    scrollUp = False, scrollDown = False 
+                }
+            
+            put gs { player = newPlayer, inputState = newInput }
+
+
+-- Soltar item al presionar Q
+handleItemDrop :: State GameState ()
+handleItemDrop = do
+    gs <- get
+    let inp = inputState gs
+        p = player gs
+        
+    when (keyQ inp) $ do
+        let currentSlot = playerSelectedSlot p
+            inventory = playerInventory p
+            currentItem = inventory !! currentSlot
+            
+        case currentItem of
+            Nothing -> put gs { inputState = inp { keyQ = False } }
+            Just iType -> do
+                let (px, py) = playerPos p
+                    droppedItem = WorldItem {
+                        itemPos = (px, py),
+                        itemType = iType,
+                        itemFloatTime = 0
+                    }
+                    
+                    -- Actualizar inventario
+                    newInventory = updateInventoryAt currentSlot Nothing inventory
+                    
+                    -- Actualizar boomerang flag si se dropea el boomerang
+                    hasBoomerang' = if iType == Boomerang then False else playerHasBoomerang p
+                    
+                    newPlayer = p {
+                        playerInventory = newInventory,
+                        playerEquippedItem = Nothing,
+                        playerHasBoomerang = hasBoomerang',
+                        playerItemFlashState = NoFlash,
+                        playerItemFlashTimer = 0
+                    }
+                    
+                    newItems = droppedItem : worldItems gs
+                
+                put gs { 
+                    player = newPlayer, 
+                    worldItems = newItems,
+                    inputState = inp { keyQ = False }
+                }
+  where
+    updateInventoryAt :: Int -> Maybe ItemType -> [Maybe ItemType] -> [Maybe ItemType]
+    updateInventoryAt _ _ [] = []
+    updateInventoryAt 0 newItem (_:rest) = newItem : rest
+    updateInventoryAt n newItem (x:rest) = x : updateInventoryAt (n-1) newItem rest
+
+
+-- Actualizar el flash del nombre del item
+updateItemFlash :: Float -> State GameState ()
+updateItemFlash dt = do
+    gs <- get
+    let p = player gs
+        flashState = playerItemFlashState p
+        flashTimer = playerItemFlashTimer p
+    
+    case flashState of
+        NoFlash -> return ()
+        
+        Showing iType -> do
+            let newTimer = flashTimer - dt
+            if newTimer <= 0
+                then do
+                    -- Pasar a FadingOut
+                    let newPlayer = p {
+                        playerItemFlashState = FadingOut iType itemNameFadeOutDuration,
+                        playerItemFlashTimer = itemNameFadeOutDuration
+                    }
+                    put gs { player = newPlayer }
+                else do
+                    let newPlayer = p { playerItemFlashTimer = newTimer }
+                    put gs { player = newPlayer }
+        
+        FadingOut iType fadeTime -> do
+            let newTimer = flashTimer - dt
+            if newTimer <= 0
+                then do
+                    -- Terminar el flash
+                    let newPlayer = p {
+                        playerItemFlashState = NoFlash,
+                        playerItemFlashTimer = 0
+                    }
+                    put gs { player = newPlayer }
+                else do
+                    let newPlayer = p { playerItemFlashTimer = newTimer }
+                    put gs { player = newPlayer }
+
 
 -- BOOMERANG
 

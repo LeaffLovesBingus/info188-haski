@@ -32,6 +32,9 @@ data DestructibleObject = DestructibleObject {
 data BoomerangState = Flying | Returning
     deriving (Eq, Show)
 
+data FlashState = NoFlash | Showing ItemType | FadingOut ItemType Float
+    deriving (Eq, Show)
+
 
 -- Proyectil (Flechas de la ballesta)
 data Projectile = Projectile {
@@ -60,9 +63,13 @@ data Player = Player {
     playerDir :: Direction,
     playerFrame :: Int,
     playerAnimTime :: Float,
-    playerEquippedItem :: Maybe ItemType,
     playerCooldownBallesta :: Float,
-    playerHasBoomerang :: Bool
+    playerHasBoomerang :: Bool,
+    playerEquippedItem :: Maybe ItemType,
+    playerInventory :: [Maybe ItemType],
+    playerSelectedSlot :: Int,
+    playerItemFlashTimer :: Float,
+    playerItemFlashState :: FlashState
 } deriving (Show)
 
 -- Item en el mundo
@@ -80,14 +87,22 @@ data Camera = Camera {
 
 -- Input del usuario
 data InputState = InputState {
-    keyW :: Bool,
-    keyA :: Bool,
-    keyS :: Bool,
-    keyD :: Bool,
-    keyB :: Bool,
-    keyE :: Bool,
-    mousePos :: Position,
-    mouseClick :: Bool
+    keyW :: Bool,           -- Adelante
+    keyA :: Bool,           -- Izquierda
+    keyS :: Bool,           -- Atrás
+    keyD :: Bool,           -- Derecha
+    keyB :: Bool,           -- Sprint
+    keyE :: Bool,           -- Recoger item
+    keyQ :: Bool,           -- Tirar item
+    key1 :: Bool,           -- Slot 1
+    key2 :: Bool,           -- Slot 2
+    key3 :: Bool,           -- Slot 3
+    key4 :: Bool,           -- Slot 4
+    key5 :: Bool,           -- Slot 5
+    mousePos :: Position,   -- Posición del mouse
+    mouseClick :: Bool,     -- Disparar/consumir
+    scrollUp :: Bool,       -- Recorrer inventario
+    scrollDown :: Bool      -- Recorrer inventario
 } deriving (Show)
 
 -- Estado del juego
@@ -164,7 +179,7 @@ boomerangSpeed :: Float         -- Velocidad de tiro del boomerang
 boomerangSpeed = 800.0          
 
 boomerangMaxDistance :: Float   -- Distancia máxima de tiro del boomerang
-boomerangMaxDistance = 400      -- Pixeles
+boomerangMaxDistance = 300      -- Pixeles
 
 boomerangSpinSpeed :: Float     -- Velocidad de giro del boomerang
 boomerangSpinSpeed = 1080        -- grados por segundo
@@ -173,7 +188,7 @@ boomerangReturnAccel :: Float   -- Aceleración del boomerang al regresar
 boomerangReturnAccel = 1000.0
 
 boomerangCatchRadius :: Float   -- Radio para atrapar al boomerang
-boomerangCatchRadius = 40.0
+boomerangCatchRadius = 20.0
 
 
 ------------------- JUGADOR -------------------
@@ -237,7 +252,20 @@ getLootItem 1686 = Fuerza      -- Caja -> Poción de fuerza
 getLootItem 1814 = Velocidad  -- Vasija -> Poción de velocidad
 getLootItem _ = Curacion
 
--- Nombre de cada item
+
+------------------- INVENTARIO -------------------
+inventorySize :: Int
+inventorySize = 5
+
+itemNameFlashDuration :: Float
+itemNameFlashDuration = 0.5
+
+itemNameFadeOutDuration :: Float
+itemNameFadeOutDuration = 0.5
+
+itemNameFlashYOffset :: Float   -- Offset en el eje Y sobre el jugador
+itemNameFlashYOffset = 40.0
+
 
 -- Nombre de cada item en String
 itemName :: ItemType -> String

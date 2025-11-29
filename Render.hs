@@ -153,6 +153,7 @@ renderGame gs =
           renderDestructibleHealthBars gs,  -- BARRAS DE VIDA (dibujar encima de props)
           renderBoomerang gs, -- Renderizar boomerang
           renderLayers layersAbove, -- Capas 3,4 (Plantas, Props) - encima del jugador
+          renderItemFlash gs, -- Nombre del item seleccionado
           renderCursor gs,
           renderCooldownBar gs,
           renderHUD gs
@@ -374,3 +375,30 @@ renderBoomerang gs =
         rotate rotation $
         scale 1.0 1.0 $
         boomerangProjectilePicture
+
+
+-- Renderizar el flash del nombre del item sobre el jugador
+renderItemFlash :: GameState -> Picture
+renderItemFlash gs =
+  let p = player gs
+      flashState = playerItemFlashState p
+      cam = cameraPos (camera gs)
+      (px, py) = playerPos p
+      screenX = px - fst cam
+      screenY = py - snd cam
+  in case flashState of
+      NoFlash -> Blank
+      
+      Showing iType ->
+        translate screenX (screenY + itemNameFlashYOffset) $
+          scale 0.12 0.12 $
+            color white $
+              text (itemName iType)
+      
+      FadingOut iType fadeTime ->
+        let alpha = playerItemFlashTimer p / itemNameFadeOutDuration
+            fadeColor = makeColor 1.0 1.0 1.0 alpha
+        in translate screenX (screenY + itemNameFlashYOffset) $
+            scale 0.12 0.12 $
+              color fadeColor $
+                text (itemName iType)
