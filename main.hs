@@ -7,6 +7,7 @@ import qualified Data.Map.Strict as Map
 import Types
 import Logic
 import Render
+import Assets
 import MapLoader (loadMapFromJSON, loadGlobalCollisionShapesFromMap)
 
 main :: IO ()

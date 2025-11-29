@@ -151,6 +151,8 @@ renderGame gs =
           renderProjectiles gs,
           renderWorldItems gs,
           renderDestructibleHealthBars gs,  -- BARRAS DE VIDA (dibujar encima de props)
+          renderBoomerang gs, -- Renderizar boomerang
+          renderLayers layersAbove, -- Capas 3,4 (Plantas, Props) - encima del jugador
           renderCursor gs,
           renderCooldownBar gs,
           renderHUD gs
@@ -353,3 +355,23 @@ renderWorldItems gs =
                 itemText
               ]
    in pictures (map renderItem items)
+   in pictures (map renderItem items)
+
+
+-- Renderizar el boomerang
+renderBoomerang :: GameState -> Picture
+renderBoomerang gs = 
+  case boomerang gs of
+    Nothing -> Blank
+    Just b ->
+      let cam = cameraPos (camera gs)
+          camX = fst cam
+          camY = snd cam
+          (bx, by) = boomerangPos b
+          rotation = boomerangRotation b 
+          screenX = bx - camX
+          screenY = by - camY
+      in translate screenX screenY $
+        rotate rotation $
+        scale 1.0 1.0 $
+        boomerangProjectilePicture
