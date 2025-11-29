@@ -3,7 +3,7 @@
         "height": 4300,
         "width": 2
     },
-    "activeFile": "TX Struct.tsx",
+    "activeFile": "mapa.tmx",
     "expandedProjectPaths": [
         "."
     ],
@@ -56,8 +56,8 @@
             "scale": 1,
             "selectedLayer": 4,
             "viewCenter": {
-                "x": 444.5,
-                "y": 568
+                "x": 1862.5,
+                "y": 817
             }
         }
     },
@@ -83,7 +83,6 @@
     ],
     "project": "mapa.tiled-project",
     "recentFiles": [
-        "mapa.tmx",
         "TX Props with Shadow.tsx",
         "TX Props.tsx",
         "TX Plant with Shadow.tsx",
@@ -94,7 +93,8 @@
         "TX Player.tsx",
         "TX Plant.tsx",
         "TX Tileset Wall.tsx",
-        "TX Struct.tsx"
+        "TX Struct.tsx",
+        "mapa.tmx"
     ],
     "tileset.lastUsedFormat": "tsx"
 }

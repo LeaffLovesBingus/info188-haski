@@ -145,17 +145,16 @@ renderGame gs =
 
       renderLayers layers = pictures $ map (\(_, tiles) -> renderLayerTiles tiles camX camY) layers
    in pictures
-        [ renderLayers layersBelow,
-          renderLayers layersAbove,
+        [ renderLayers layersBelow,      -- Capas 0,1,2 (debajo del jugador)
           renderPlayer gs,
           renderProjectiles gs,
           renderWorldItems gs,
-          renderBoomerang gs, -- Renderizar boomerang
-          renderLayers layersAbove, -- Capas 3,4 (Plantas, Props) - encima del jugador
-          renderItemFlash gs, -- Nombre del item seleccionado
+          renderBoomerang gs,
+          renderLayers layersAbove,      -- Capas 3,4 (Plantas, Props) - encima del jugador
+          renderItemFlash gs,
           renderCursor gs,
           renderCooldownBar gs,
-          renderDestructibleHealthBars gs,  -- BARRAS DE VIDA: dibujar encima de TODO (visible sobre jugador/items)
+          renderDestructibleHealthBars gs,
           renderHUD gs
         --, renderDebugCollisions gs      -- Debug
         ]
