@@ -159,7 +159,7 @@ arrowDamage :: Float
 arrowDamage = 35.0
 
 boomerangDamage :: Float
-boomerangDamage = 40
+boomerangDamage = 20.0
 
 -- Daño que va a inflingir la espada
 swordDamage :: Float

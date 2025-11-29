@@ -150,12 +150,12 @@ renderGame gs =
           renderPlayer gs,
           renderProjectiles gs,
           renderWorldItems gs,
-          renderDestructibleHealthBars gs,  -- BARRAS DE VIDA (dibujar encima de props)
           renderBoomerang gs, -- Renderizar boomerang
           renderLayers layersAbove, -- Capas 3,4 (Plantas, Props) - encima del jugador
           renderItemFlash gs, -- Nombre del item seleccionado
           renderCursor gs,
           renderCooldownBar gs,
+          renderDestructibleHealthBars gs,  -- BARRAS DE VIDA: dibujar encima de TODO (visible sobre jugador/items)
           renderHUD gs
         ]
 
