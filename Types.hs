@@ -10,6 +10,7 @@ type Position = (Float, Float)
 type Velocity = (Float, Float)
 type TileCoord = (Int, Int)
 
+-- Tipos específicos
 data Direction = DirDown | DirRight | DirUp | DirLeft 
     deriving (Eq, Ord, Show, Ix, Bounded)
 
@@ -19,12 +20,27 @@ data AnimType = Idle | Walk
 data ItemType = Ballesta | Boomerang | Espada | Curacion | Velocidad | Stamina | Fuerza
     deriving (Eq, Ord, Show, Ix, Bounded)
 
--- Proyectil
+data BoomerangState = Flying | Returning
+    deriving (Eq, Show)
+
+
+-- Proyectil (Flechas de la ballesta)
 data Projectile = Projectile {
     projPos :: Position,
     projVel :: Velocity,
     projLifetime :: Float
 } deriving (Show)
+
+
+-- Proyectil boomerang
+data BoomerangProjectile = BoomerangProjectile {
+    boomerangPos :: Position,
+    boomerangVel :: Velocity,
+    boomerangState :: BoomerangState,
+    boomerangDistanceTraveled :: Float,
+    boomerangRotation :: Float,             -- Ángulo de rotación actual
+    boomerangInitialDir :: (Float, Float)   -- Dirección inicial en la que fue disparado
+} deriving (Show, Eq)
 
 
 -- Jugador
@@ -37,7 +53,8 @@ data Player = Player {
     playerFrame :: Int,
     playerAnimTime :: Float,
     playerEquippedItem :: Maybe ItemType,
-    playerCooldownBallesta :: Float
+    playerCooldownBallesta :: Float,
+    playerHasBoomerang :: Bool
 } deriving (Show)
 
 
@@ -74,6 +91,7 @@ data GameState = GameState {
     player :: Player,
     camera :: Camera,
     projectiles :: [Projectile],
+    boomerang :: Maybe BoomerangProjectile,   -- Solo habrá un boomerang a la vez
     worldItems :: [WorldItem],
     inputState :: InputState,
     tileMap :: [[Int]],
@@ -85,15 +103,33 @@ data GameState = GameState {
 
 
 -- Constantes
-tileSize :: Float
-tileSize = 64
 
+------------------- PANTALLA -------------------
 screenWidth :: Int
 screenWidth = 1280
 
 screenHeight :: Int
 screenHeight = 720
 
+cameraSmoothing :: Float
+cameraSmoothing = 0.15
+
+
+------------------- PARTIDA -------------------
+tileSize :: Float
+tileSize = 64
+
+itemPickupRadius :: Float
+itemPickupRadius = 50.0
+
+itemFloatSpeed :: Float
+itemFloatSpeed = 2.0
+
+itemFloatHeight :: Float
+itemFloatHeight = 8.0
+
+
+------------------- ARMAS -------------------
 projectileSpeed :: Float
 projectileSpeed = 1200
 
@@ -108,6 +144,37 @@ arrowDamage = 60 -- suponiendo que el enemigo tenga 100 de vida
 boomerangDamage :: Float
 boomerangDamage = 40
 
+-- Daño que va a inflingir la espada
+swordDamage :: Float
+swordDamage = 30
+
+cooldownBallesta :: Float
+cooldownBallesta = 0.8
+
+cooldownBarWidth :: Float
+cooldownBarWidth = 50.0
+
+cooldownBarHeight :: Float
+cooldownBarHeight = 4.0 
+
+-- Boomerang
+boomerangSpeed :: Float         -- Velocidad de tiro del boomerang
+boomerangSpeed = 800.0          
+
+boomerangMaxDistance :: Float   -- Distancia máxima de tiro del boomerang
+boomerangMaxDistance = 400      -- Pixeles
+
+boomerangSpinSpeed :: Float     -- Velocidad de giro del boomerang
+boomerangSpinSpeed = 1080        -- grados por segundo
+
+boomerangReturnAccel :: Float   -- Aceleración del boomerang al regresar
+boomerangReturnAccel = 1000.0
+
+boomerangCatchRadius :: Float   -- Radio para atrapar al boomerang
+boomerangCatchRadius = 40.0
+
+
+------------------- JUGADOR -------------------
 playerBaseSpeed :: Float
 playerBaseSpeed = 350
 
@@ -124,26 +191,7 @@ playerCollisionHalfSize = 14.0  -- Mitad del tamaño de colisión del jugador (2
 playerCollisionOffsetY :: Float
 playerCollisionOffsetY = -20.0  -- Bajar la colisión hacia los pies del sprite
 
-cameraSmoothing :: Float
-cameraSmoothing = 0.15
 
-itemPickupRadius :: Float
-itemPickupRadius = 50.0
-
-itemFloatSpeed :: Float
-itemFloatSpeed = 2.0
-
-itemFloatHeight :: Float
-itemFloatHeight = 8.0
-
-cooldownBallesta :: Float
-cooldownBallesta = 0.8
-
-cooldownBarWidth :: Float
-cooldownBarWidth = 50.0
-
-cooldownBarHeight :: Float
-cooldownBarHeight = 4.0 
 
 -- Nombre de cada item en String
 itemName :: ItemType -> String

@@ -102,6 +102,24 @@ loadItemSprite path = do
     Left _ -> return Blank
     Right dyn -> return $ fromImageRGBA8 (convertRGBA8 dyn)
 
+
+-- Cargar el asset de boomerang como proyectil
+boomerangProjectileImage :: Maybe (Image PixelRGBA8)
+boomerangProjectileImage = unsafePerformIO $ do
+    result <- readImage "assets/items/armas/boomerang.png"
+    return $ case result of 
+        Left _ -> Nothing
+        Right dynImg -> Just (convertRGBA8 dynImg)
+{-# NOINLINE boomerangProjectileImage #-}
+
+
+boomerangProjectilePicture :: Picture
+boomerangProjectilePicture =
+    case boomerangProjectileImage of
+        Just img -> fromImageRGBA8 img
+        Nothing -> color blue (circleSolid 8) -- Por defecto un círculo azul
+
+
 -- Nueva: cargar un tileset (.png) y devolver la lista de tiles (Pictures).
 -- No sustituye nada existente: es una función utilitaria adicional.
 loadTileset :: FilePath -> Int -> Int -> IO [Picture]

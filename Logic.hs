@@ -20,10 +20,12 @@ initialGameState tiles layers collisions = GameState {
         playerFrame = 0, 
         playerAnimTime = 0,
         playerEquippedItem = Nothing,
-        playerCooldownBallesta = 0.0
+        playerCooldownBallesta = 0.0,
+        playerHasBoomerang = True
     },
     camera = Camera { cameraPos = spawnAtTile 25 25, cameraTarget = spawnAtTile 25 25 },
     projectiles = [],
+    boomerang = Nothing,
     worldItems = [ -- Items de ejemplo
         WorldItem { itemPos = spawnAtTile 23 27, itemType = Ballesta, itemFloatTime = 0 },
         WorldItem { itemPos = spawnAtTile 24 27, itemType = Boomerang, itemFloatTime = 0 },
@@ -81,9 +83,19 @@ updateGame dt = do
     updatePlayerMovement dt
     updateCamera dt
     updatePlayerCooldowns dt
+    updateBoomerang dt
     updateProjectiles dt
     updateWorldItems dt
     handleItemPickup
+    resetMouseClick
+
+
+-- Resetea el clic del mouse
+resetMouseClick :: State GameState ()
+resetMouseClick = do
+    gs <- get
+    let inp = inputState gs
+    put gs { inputState = inp { mouseClick = False } }
 
 
 -- Normalizar GID (quitar flags de flip de Tiled)
@@ -406,7 +418,7 @@ updateProjectiles dt = do
                            }
                        ) newProjs
     
-    put gs { projectiles = updatedProjs, player = newPlayer, inputState = inp { mouseClick = False } }
+    put gs { projectiles = updatedProjs, player = newPlayer }
 
 
 -- Actualizar la barra de cooldown sobre el jugador
@@ -450,7 +462,9 @@ handleItemPickup = do
 
         case nearbyItems of
             (item:_) -> do
-                let newPlayer = p { playerEquippedItem = Just (itemType item) }
+                let newPlayer = case itemType item of
+                        Boomerang -> p { playerEquippedItem = Just (itemType item), playerHasBoomerang = True }
+                        _ -> p { playerEquippedItem = Just (itemType item) }
                     remaining = filter (/= item) items
                 put gs
                     { player = newPlayer
@@ -460,3 +474,120 @@ handleItemPickup = do
 
             [] -> return ()
     
+
+-- BOOMERANG
+
+-- Verifica si una posición colisiona con el entorno
+positionCollidesWithWorld :: GameState -> (Float, Float) -> Bool
+positionCollidesWithWorld gs (px, py) = 
+    let collisionRadius = 10.0
+        testPoints = [(px, py), (px + collisionRadius, py), (px - collisionRadius, py),
+                      (px, py + collisionRadius), (px, py - collisionRadius)]
+    in any (playerCollidesAt gs) testPoints
+
+
+-- Actualiza el boomerang
+updateBoomerang :: Float -> State GameState ()
+updateBoomerang dt = do
+    gs <- get
+    let inp = inputState gs
+        p = player gs
+        (px, py) = playerPos p
+        cam = cameraPos (camera gs)
+        (mx, my) = mousePos inp
+
+        worldMouseX = mx + fst cam
+        worldMouseY = my + snd cam
+
+        hasBoomerangEquipped = case playerEquippedItem p of
+            Just Boomerang -> True
+            _ -> False
+
+        -- Boomerang equipado, el boomerang está en las manos del jugador y no existe otra instancia de boomerang en el mundo
+        canThrow = hasBoomerangEquipped && playerHasBoomerang p && boomerang gs == Nothing
+
+        -- Si se detectó el clic y se dan las condiciones, lanzar el boomerang
+        newBoomerang = if mouseClick inp && canThrow
+            then let dx = worldMouseX - px
+                     dy = worldMouseY - py
+
+                     len = sqrt (dx * dx + dy * dy)
+                     (ndx, ndy) = if len > 0 then (dx / len, dy / len) else (1, 0)
+
+                     newB = BoomerangProjectile {
+                        boomerangPos = (px, py),
+                        boomerangVel = (ndx * boomerangSpeed, ndy * boomerangSpeed),
+                        boomerangState = Flying,
+                        boomerangDistanceTraveled = 0.0,
+                        boomerangRotation = 0.0,
+                        boomerangInitialDir = (ndx, ndy)
+                     }
+                in Just newB
+            else boomerang gs
+
+        -- Actualizar los datos del jugador con respecto al boomerang creado
+        newPlayer = if mouseClick inp && canThrow
+            then p { playerHasBoomerang = False }
+            else p
+
+    -- Actualizar el estado del boomerang
+    case newBoomerang of
+        Nothing -> put gs { player = newPlayer }
+
+        -- Hay un boomerang existente en la partida
+        Just b -> do
+            let (bx, by) = boomerangPos b
+                (bvx, bvy) = boomerangVel b
+
+                newRotation = boomerangRotation b + boomerangSpinSpeed * dt
+
+                newBx = bx + bvx * dt
+                newBy = by + bvy * dt
+                newDist = boomerangDistanceTraveled b + sqrt ((bvx * dt) ^ 2 + (bvy * dt) ^ 2)
+
+                -- Comprobar si el boomerang chocó con algo del mundo
+                collided = positionCollidesWithWorld gs (newBx, newBy)
+
+                dxToPlayer = px - newBx
+                dyToPlayer = py - newBy
+                distToPlayer = sqrt (dxToPlayer ^ 2 + dyToPlayer ^ 2) -- Distancia euclidiana al jugador
+                (dirX, dirY) = if distToPlayer > 0.1
+                    then (dxToPlayer / distToPlayer, dyToPlayer / distToPlayer)
+                    else (0, 0)
+                
+                (newState, newVel) = case boomerangState b of
+                    Flying ->
+                        if collided
+                            then (Returning, (dirX * boomerangSpeed, dirY * boomerangSpeed))
+                        else if newDist >= boomerangMaxDistance
+                            then let currentSpeed = sqrt (bvx ^ 2 + bvy ^ 2)
+                                     newSpeed = max 0.0 (currentSpeed - boomerangReturnAccel * dt)
+                                     (nvx, nvy) = if newSpeed > 0.1
+                                        then let (dx, dy) = boomerangInitialDir b
+                                            in (dx * newSpeed, dy * newSpeed)
+                                        else (0, 0)
+                                in if newSpeed <= 0.1
+                                    then (Returning, (dirX * boomerangSpeed, dirY * boomerangSpeed))
+                                    else (Flying, (nvx, nvy))
+                            else (Flying, (bvx, bvy))
+
+                    Returning -> (Returning, (dirX * boomerangSpeed, dirY * boomerangSpeed))
+
+                caught = distToPlayer <= boomerangCatchRadius && newState == Returning
+
+                finalBoomerang = if caught
+                    then Nothing
+                    else Just $ b {
+                        boomerangPos = (newBx, newBy),
+                        boomerangVel = newVel,
+                        boomerangState = newState,
+                        boomerangDistanceTraveled = newDist,
+                        boomerangRotation = newRotation
+                    }
+                
+                finalPlayer = if caught
+                    then newPlayer { playerHasBoomerang = True }
+                    else newPlayer
+            
+            put gs { boomerang = finalBoomerang, player = finalPlayer }
+           

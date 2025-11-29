@@ -170,6 +170,7 @@ renderGame gs =
           renderWorldItems gs,
           renderPlayer gs, -- Jugador
           renderProjectiles gs,
+          renderBoomerang gs, -- Renderizar boomerang
           renderLayers layersAbove, -- Capas 3,4 (Plantas, Props) - encima del jugador
           renderCursor gs,
           renderCooldownBar gs, -- Cooldown de la ballesta
@@ -463,3 +464,22 @@ renderWorldItems gs =
                 itemText
               ]
    in pictures (map renderItem items)
+
+
+-- Renderizar el boomerang
+renderBoomerang :: GameState -> Picture
+renderBoomerang gs = 
+  case boomerang gs of
+    Nothing -> Blank
+    Just b ->
+      let cam = cameraPos (camera gs)
+          camX = fst cam
+          camY = snd cam
+          (bx, by) = boomerangPos b
+          rotation = boomerangRotation b 
+          screenX = bx - camX
+          screenY = by - camY
+      in translate screenX screenY $
+        rotate rotation $
+        scale 1.0 1.0 $
+        boomerangProjectilePicture
