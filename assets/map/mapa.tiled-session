@@ -53,11 +53,11 @@
             "scaleInEditor": 1
         },
         "mapa.tmx": {
-            "scale": 3,
-            "selectedLayer": 4,
+            "scale": 1,
+            "selectedLayer": 2,
             "viewCenter": {
-                "x": 1023.1666666666665,
-                "y": 578
+                "x": 1282.5,
+                "y": 592
             }
         }
     },
@@ -77,16 +77,10 @@
         "TX Shadow Plant.tsx",
         "TX Shadow.tsx",
         "TX Tileset Grass.tsx",
-        "TX Tileset Stone Ground.tsx",
-        "TX Plant with Shadow.tsx",
-        "TX Props.tsx",
-        "TX Props with Shadow.tsx"
+        "TX Tileset Stone Ground.tsx"
     ],
     "project": "mapa.tiled-project",
     "recentFiles": [
-        "TX Props with Shadow.tsx",
-        "TX Props.tsx",
-        "TX Plant with Shadow.tsx",
         "TX Tileset Stone Ground.tsx",
         "TX Tileset Grass.tsx",
         "TX Shadow.tsx",
@@ -95,7 +89,10 @@
         "TX Plant.tsx",
         "TX Tileset Wall.tsx",
         "TX Struct.tsx",
-        "mapa.tmx"
+        "mapa.tmx",
+        "TX Props with Shadow.tsx",
+        "TX Props.tsx",
+        "TX Plant with Shadow.tsx"
     ],
     "tileset.lastUsedFormat": "tsx"
 }

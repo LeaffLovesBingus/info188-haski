@@ -43,7 +43,7 @@ Haski es un juego top-down donde controlas a un personaje en un mundo con colisi
 | W/A/S/D | Mover personaje |
 | Shift | Sprint |
 | E | Recoger item |
-| Q | Soltar item |
+| F | Soltar item |
 | 1-5 | Seleccionar slot del inventario |
 | Click | Atacar / Usar item |
 
@@ -108,5 +108,5 @@ Los tilesets y sprites utilizados en este proyecto fueron obtenidos de:
 - [Raven Fantasy Icons](https://clockworkraven.itch.io/raven-fantasy-icons) - Assets de armas y pociones
 - [Pioxel Art Top Down - Basic](https://cainos.itch.io/pixel-art-top-down-basic) - Tileset y Assets usados para el diseño del mapa
 - [Pixelart ruins](https://www.reddit.com/r/PixelArt/comments/fvdl43/pixelart_ruins/) - Arte para la pantalla de inicio
-- [Pixel art of a winding dirt path through a sunlit forest](https://www.craiyon.com/en/image/Dhn_mOTBSSiD1F49ffZRjg) - Arte para la pantalla de Victoria.
-- [Graveyard](https://www.reddit.com/r/PixelArt/comments/i2x94p/graveyard/) - Arte para la pantalla de Derrota.
+- [Pixel art of a winding dirt path through a sunlit forest](https://www.craiyon.com/en/image/Dhn_mOTBSSiD1F49ffZRjg) - Arte para la pantalla de victoria.
+- [Graveyard](https://www.reddit.com/r/PixelArt/comments/i2x94p/graveyard/) - Arte para la pantalla de derrota.
