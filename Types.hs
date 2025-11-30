@@ -85,6 +85,7 @@ data Player = Player {
     playerItemFlashTimer :: Float,
     playerItemFlashState :: FlashState,
     playerSpeedBoostTimer :: Float,
+    playerStrengthBoostTimer :: Float,  -- Timer para poción de fuerza
     playerIsTakingDamage :: Bool,
     playerDamageAnimTimer :: Float,
     playerDamageDirection :: DamageDirection,
@@ -140,7 +141,10 @@ data GameState = GameState {
     collisionMap :: [[Bool]],
     collisionShapes :: Map.Map Int [CollisionShape],
     randomSeed :: Int,
-    enemies:: Enemies
+    enemies:: Enemies,
+    enemyRespawnTimer :: Float,               -- Timer para respawnear enemigos
+    nextEnemyId :: Int,                       -- ID para el próximo enemigo
+    exitRequested :: Bool                     -- Flag para cerrar el juego
 } deriving (Show)
 
 -- Tiempo para ganar (3 minutos = 180 segundos)
@@ -263,7 +267,7 @@ playerCollisionOffsetY :: Float
 playerCollisionOffsetY = -20.0
 
 damageAnimationDuration :: Float
-damageAnimationDuration = 0.5
+damageAnimationDuration = 0.3
 
 damageKnockbackDistance :: Float
 damageKnockbackDistance = 600.0
@@ -346,3 +350,17 @@ dmgFromEnemy = 10
 
 enemyAnimationSpeed :: Float
 enemyAnimationSpeed = 0.3  -- Cambia de frame cada 0.3 segundos
+
+-- Constantes de respawn de enemigos
+maxEnemies :: Int
+maxEnemies = 5  -- Máximo de enemigos en el mapa
+
+enemyRespawnDelay :: Float
+enemyRespawnDelay = 3.0  -- Segundos antes de respawnear un enemigo
+
+-- Poción de fuerza
+strengthBoostDuration :: Float
+strengthBoostDuration = 10.0  -- Duración del boost de fuerza
+
+strengthDamageMultiplier :: Float
+strengthDamageMultiplier = 2.0  -- Multiplicador de daño con poción de fuerza

@@ -10,7 +10,6 @@ import Data.Bits ((.&.))
 import Pociones
 import qualified Enemys
 import System.IO.Unsafe (unsafePerformIO)
-import System.Exit (exitSuccess)
 
 -- Estado inicial
 initialGameState :: [[Int]] -> [[[Int]]] -> [[Bool]] -> GameState
@@ -33,6 +32,7 @@ initialGameState tiles layers collisions = GameState {
         playerItemFlashTimer = 0.0,
         playerItemFlashState = NoFlash,
         playerSpeedBoostTimer = 0.0,
+        playerStrengthBoostTimer = 0.0,
         playerIsTakingDamage = False,
         playerDamageAnimTimer = 0.0,
         playerDamageDirection = DamageFromFront,
@@ -76,9 +76,12 @@ initialGameState tiles layers collisions = GameState {
     collisionShapes = Map.empty,
     randomSeed = 42,
     enemies = Map.fromList [
-        (1, Enemys.createEnemyDefault 1 (spawnAtTileCenter 45 35) Ground),
-        (2, Enemys.createEnemyDefault 2 (spawnAtTileCenter 40 30) Ground)
-    ]
+        (1, Enemys.createEnemyDefault 1 (spawnAtTileCenter 55 40) Ground),
+        (2, Enemys.createEnemyDefault 2 (spawnAtTileCenter 25 25) Ground)
+    ],
+    enemyRespawnTimer = 0.0,
+    nextEnemyId = 3,
+    exitRequested = False
 }
 
 
@@ -150,7 +153,7 @@ handleMenuInput event = do
                 then put $ resetGameForNewPlay gs
             -- Verificar si se hizo clic en el boton Salir
             else if isInsideButton mx my exitButtonY
-                then gs `seq` unsafePerformIO exitSuccess `seq` return ()
+                then put gs { exitRequested = True }
             else return ()
         _ -> return ()
 
@@ -189,6 +192,7 @@ resetGameForNewPlay gs = gs {
         playerItemFlashTimer = 0.0,
         playerItemFlashState = NoFlash,
         playerSpeedBoostTimer = 0.0,
+        playerStrengthBoostTimer = 0.0,
         playerIsTakingDamage = False,
         playerDamageAnimTimer = 0.0,
         playerDamageDirection = DamageFromFront,
@@ -198,7 +202,14 @@ resetGameForNewPlay gs = gs {
     camera = Camera { cameraPos = spawnAtTileCenter 39 32, cameraTarget = spawnAtTileCenter 39 32 },
     projectiles = [],
     boomerang = Nothing,
-    swordSlash = Nothing
+    swordSlash = Nothing,
+    enemies = Map.fromList [
+        (1, Enemys.createEnemyDefault 1 (spawnAtTileCenter 55 40) Ground),
+        (2, Enemys.createEnemyDefault 2 (spawnAtTileCenter 25 25) Ground)
+    ],
+    enemyRespawnTimer = 0.0,
+    nextEnemyId = 3,
+    exitRequested = False
 }
 
 -- Verificar si un clic está dentro de un botón
@@ -328,6 +339,7 @@ updateGame dt = do
                 handleItemDrop              -- Soltar items con Q
                 handlePotionUse
                 updateSpeedTimer dt
+                updateStrengthTimer dt      -- Timer de poción de fuerza
                 updatePlayerMovement dt
                 updateCamera dt
                 updatePlayerCooldowns dt
@@ -335,6 +347,9 @@ updateGame dt = do
                 updateProjectiles dt
                 updateSwordSlash dt
                 checkProjectileCollisions dt
+                checkSwordEnemyCollisions   -- Daño de espada a enemigos
+                checkProjectileEnemyCollisions  -- Daño de proyectiles a enemigos
+                checkBoomerangEnemyCollisions   -- Daño de boomerang a enemigos
                 updateWorldItems dt
                 handleItemPickup
                 updateItemFlash dt          -- Nombre del item cuando lo recoges / seleccionas
@@ -345,6 +360,8 @@ updateGame dt = do
                 checkEnemyPlayerCollisions
                 Enemys.pushEnemiesFromPlayer
                 Enemys.resolveAllEnemyCollisions
+                
+                updateEnemyRespawn dt       -- Respawn de enemigos
 
                 resetMouseClick
         _ -> return ()
@@ -1416,3 +1433,170 @@ checkEnemyPlayerCollisions = do
     when (not (null collidingEnemies) && not (playerIsInvulnerable p) && not (playerIsTakingDamage p)) $ do
         let firstEnemy = head collidingEnemies
         takeDamage dmgFromEnemy (position firstEnemy)
+
+
+------------------- DAÑO A ENEMIGOS -------------------
+
+-- Calcular daño con multiplicador de fuerza
+calculateDamage :: Float -> Player -> Float
+calculateDamage baseDamage p =
+    if playerStrengthBoostTimer p > 0
+    then baseDamage * strengthDamageMultiplier
+    else baseDamage
+
+-- Actualizar timer de poción de fuerza
+updateStrengthTimer :: Float -> State GameState ()
+updateStrengthTimer dt = do
+    gs <- get
+    let p = player gs
+        newTimer = max 0.0 (playerStrengthBoostTimer p - dt)
+    
+    when (newTimer /= playerStrengthBoostTimer p) $ do
+        let newPlayer = p { playerStrengthBoostTimer = newTimer }
+        put gs { player = newPlayer }
+
+-- Verificar colisiones de espada con enemigos
+checkSwordEnemyCollisions :: State GameState ()
+checkSwordEnemyCollisions = do
+    gs <- get
+    case swordSlash gs of
+        Nothing -> return ()
+        Just slash -> when (slashActive slash) $ do
+            let p = player gs
+                (sx, sy) = slashPos slash
+                slashRadius = 45.0  -- Radio del hitbox de la espada
+                damage = round $ calculateDamage swordDamage p
+                
+                enemyList = Map.elems (enemies gs)
+                
+                -- Encontrar enemigos golpeados
+                hitEnemies = filter (\e -> 
+                    let (ex, ey) = position e
+                        dist = sqrt ((sx - ex)^2 + (sy - ey)^2)
+                    in dist <= slashRadius + radius e
+                    ) enemyList
+                
+                -- Aplicar daño a cada enemigo
+                updatedEnemies = foldl (\m e -> 
+                    let newHealth = health e - damage
+                    in if newHealth <= 0
+                       then Map.delete (enemy_id e) m
+                       else Map.insert (enemy_id e) (e { health = newHealth }) m
+                    ) (enemies gs) hitEnemies
+            
+            put gs { enemies = updatedEnemies }
+
+-- Verificar colisiones de proyectiles (flechas) con enemigos
+checkProjectileEnemyCollisions :: State GameState ()
+checkProjectileEnemyCollisions = do
+    gs <- get
+    let p = player gs
+        projs = projectiles gs
+        enemyList = Map.elems (enemies gs)
+        damage = round $ calculateDamage arrowDamage p
+        
+        -- Función para verificar si un proyectil golpea un enemigo
+        projectileHitsEnemy proj enemy =
+            let (px, py) = projPos proj
+                (ex, ey) = position enemy
+                dist = sqrt ((px - ex)^2 + (py - ey)^2)
+            in dist <= radius enemy + 10.0  -- Radio del proyectil
+        
+        -- Procesar cada proyectil
+        processProjectiles [] enems = ([], enems)
+        processProjectiles (proj:rest) enems =
+            let hitEnemy = find (\e -> projectileHitsEnemy proj e) (Map.elems enems)
+            in case hitEnemy of
+                Nothing -> 
+                    let (remainingProjs, finalEnems) = processProjectiles rest enems
+                    in (proj : remainingProjs, finalEnems)
+                Just enemy ->
+                    let newHealth = health enemy - damage
+                        newEnems = if newHealth <= 0
+                                   then Map.delete (enemy_id enemy) enems
+                                   else Map.insert (enemy_id enemy) (enemy { health = newHealth }) enems
+                        (remainingProjs, finalEnems) = processProjectiles rest newEnems
+                    in (remainingProjs, finalEnems)  -- Proyectil consumido
+        
+        (survivingProjs, updatedEnemies) = processProjectiles projs (enemies gs)
+    
+    put gs { projectiles = survivingProjs, enemies = updatedEnemies }
+  where
+    find _ [] = Nothing
+    find f (x:xs) = if f x then Just x else find f xs
+
+-- Verificar colisiones de boomerang con enemigos
+checkBoomerangEnemyCollisions :: State GameState ()
+checkBoomerangEnemyCollisions = do
+    gs <- get
+    case boomerang gs of
+        Nothing -> return ()
+        Just b -> do
+            let p = player gs
+                (bx, by) = boomerangPos b
+                boomerangRadius = 15.0
+                damage = round $ calculateDamage boomerangDamage p
+                
+                enemyList = Map.elems (enemies gs)
+                
+                -- Encontrar enemigos golpeados
+                hitEnemies = filter (\e -> 
+                    let (ex, ey) = position e
+                        dist = sqrt ((bx - ex)^2 + (by - ey)^2)
+                    in dist <= boomerangRadius + radius e
+                    ) enemyList
+                
+                -- Aplicar daño a cada enemigo (solo una vez por frame)
+                updatedEnemies = foldl (\m e -> 
+                    let newHealth = health e - damage
+                    in if newHealth <= 0
+                       then Map.delete (enemy_id e) m
+                       else Map.insert (enemy_id e) (e { health = newHealth }) m
+                    ) (enemies gs) hitEnemies
+            
+            put gs { enemies = updatedEnemies }
+
+
+------------------- RESPAWN DE ENEMIGOS -------------------
+
+-- Posiciones posibles de spawn de enemigos
+enemySpawnPositions :: [Position]
+enemySpawnPositions = 
+    [ spawnAtTileCenter 45 35
+    , spawnAtTileCenter 40 30
+    , spawnAtTileCenter 35 40
+    , spawnAtTileCenter 50 25
+    , spawnAtTileCenter 30 35
+    , spawnAtTileCenter 55 40
+    , spawnAtTileCenter 25 30
+    ]
+
+-- Actualizar respawn de enemigos
+updateEnemyRespawn :: Float -> State GameState ()
+updateEnemyRespawn dt = do
+    gs <- get
+    let currentEnemyCount = Map.size (enemies gs)
+        needsRespawn = currentEnemyCount < maxEnemies
+        timer = enemyRespawnTimer gs
+    
+    if needsRespawn
+        then do
+            let newTimer = timer + dt
+            if newTimer >= enemyRespawnDelay
+                then do
+                    -- Spawn nuevo enemigo
+                    let seed = randomSeed gs
+                        spawnIdx = seed `mod` length enemySpawnPositions
+                        spawnPos = enemySpawnPositions !! spawnIdx
+                        newEnemyId = nextEnemyId gs
+                        newEnemy = Enemys.createEnemyDefault newEnemyId spawnPos Ground
+                        updatedEnemies = Map.insert newEnemyId newEnemy (enemies gs)
+                        newSeed = (seed * 1103515245 + 12345) `mod` (2^31)
+                    put gs { 
+                        enemies = updatedEnemies, 
+                        enemyRespawnTimer = 0.0,
+                        nextEnemyId = newEnemyId + 1,
+                        randomSeed = newSeed
+                    }
+                else put gs { enemyRespawnTimer = newTimer }
+        else put gs { enemyRespawnTimer = 0.0 }

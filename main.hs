@@ -1,7 +1,7 @@
 module Main where
 
 import Graphics.Gloss
-import Graphics.Gloss.Interface.Pure.Game
+import Graphics.Gloss.Interface.IO.Game
 import Control.Monad.State (execState)
 import qualified Data.Map.Strict as Map
 import Types
@@ -9,6 +9,7 @@ import Logic
 import Render
 import Assets
 import MapLoader (loadMapFromJSON, loadGlobalCollisionShapesFromMap)
+import System.Exit (exitSuccess)
 
 main :: IO ()
 main = do
@@ -47,17 +48,26 @@ main = do
                              ", Health: " ++ show (destHealth obj)) 
           (destructibleObjects initState)
     
-    play
+    playIO
         (InWindow "Haski" (screenWidth, screenHeight) (100, 100))
         (makeColor 0.32 0.33 0.05 1)
         60
         initState
-        renderGame
-        handleEvent
-        updateGameWrapper
+        (return . renderGame)
+        handleEventIO
+        updateGameWrapperIO
 
-handleEvent :: Event -> GameState -> GameState
-handleEvent event gs = execState (handleInputEvent event) gs
+handleEventIO :: Event -> GameState -> IO GameState
+handleEventIO event gs = do
+    let newState = execState (handleInputEvent event) gs
+    -- Verificar si debemos salir (escena especial)
+    if shouldExit newState
+        then exitSuccess
+        else return newState
 
-updateGameWrapper :: Float -> GameState -> GameState
-updateGameWrapper dt gs = execState (updateGame dt) gs
+updateGameWrapperIO :: Float -> GameState -> IO GameState
+updateGameWrapperIO dt gs = return $ execState (updateGame dt) gs
+
+-- Verificar si el juego debe cerrarse
+shouldExit :: GameState -> Bool
+shouldExit gs = exitRequested gs

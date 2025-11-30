@@ -322,7 +322,7 @@ separateEnemies e1 e2 =
         overlap = minDist - dist
         
         -- Empujar más fuerte: cada uno se mueve la mitad + un buffer
-        pushDistance = (overlap / 2) + 2.0  -- Aumentamos el buffer de 0.1 a 2.0
+        pushDistance = (overlap / 2) + 0.1 
         
         -- Nuevas posiciones
         newPos1 = (fst pos1 - nx * pushDistance, snd pos1 - ny * pushDistance)

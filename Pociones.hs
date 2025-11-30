@@ -22,6 +22,7 @@ handlePotionUse = do
         case playerEquippedItem p of
             Just Curacion -> applyHealthPotion
             Just Velocidad -> applySpeedPotion
+            Just Fuerza -> applyStrengthPotion
             _ -> return () -- No hacer nada si es otro item o nada
 
 -- Lógica para la poción de curación
@@ -58,6 +59,22 @@ applySpeedPotion = do
             playerEquippedItem = newEquipped,
             playerSpeedBoostTimer = speedBoostDuration, 
             playerItemFlashState = Showing Velocidad,
+            playerItemFlashTimer = 0.5
+        }
+    put gs { player = newPlayer }
+
+-- Lógica para la poción de fuerza
+applyStrengthPotion :: State GameState ()
+applyStrengthPotion = do
+    gs <- get
+    let p = player gs
+        (newInv, newEquipped) = consumeItem (playerSelectedSlot p) (playerInventory p)
+        
+        newPlayer = p {
+            playerInventory = newInv,
+            playerEquippedItem = newEquipped,
+            playerStrengthBoostTimer = strengthBoostDuration, 
+            playerItemFlashState = Showing Fuerza,
             playerItemFlashTimer = 0.5
         }
     put gs { player = newPlayer }
