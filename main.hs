@@ -3,7 +3,6 @@ module Main where
 import Graphics.Gloss
 import Graphics.Gloss.Interface.IO.Game
 import Control.Monad.State (execState)
-import Control.Monad (when)
 import qualified Data.Map.Strict as Map
 import Types
 import Logic
@@ -11,17 +10,9 @@ import Render
 import Assets
 import MapLoader (loadMapFromJSON, loadGlobalCollisionShapesFromMap)
 import System.Exit (exitSuccess)
-import qualified SDL
-import qualified SDL.Mixer as Mix
-import Audio
 
 main :: IO ()
 main = do
-    -- Inicializar SDL y SDL.Mixer
-    SDL.initialize [SDL.InitAudio]
-    Mix.openAudio Mix.defaultAudio 256
-    loadAllAudio
-
     -- Cargar mapa
     (tilesetsInfo, tileLayersLoaded, collisions) <- loadMapFromJSON "assets/map/mapa.JSON"
     
@@ -66,9 +57,6 @@ main = do
         handleEventIO
         updateGameWrapperIO
 
-    Mix.closeAudio
-    Mix.quit
-    SDL.quit
 
 handleEventIO :: Event -> GameState -> IO GameState
 handleEventIO event gs = do
@@ -79,22 +67,7 @@ handleEventIO event gs = do
         else return newState
 
 updateGameWrapperIO :: Float -> GameState -> IO GameState
-updateGameWrapperIO dt gs = do
-    let gs' = execState (updateGame dt) gs
-
-    -- Si derrota recién ocurrió
-    when (defeatTriggered gs' && not (defeatTriggered gs)) $ do
-        Mix.haltMusic
-        Mix.setMusicVolume 10
-        playMusicLoop defeatTheme
-
-    -- Si victoria recién ocurrió
-    when (victoryTriggered gs' && not (victoryTriggered gs)) $ do
-        Mix.haltMusic
-        Mix.setMusicVolume 10
-        playMusicLoop victoryTheme
-
-    return gs'
+updateGameWrapperIO dt gs = return $ execState (updateGame dt) gs
 
 -- Verificar si el juego debe cerrarse
 shouldExit :: GameState -> Bool

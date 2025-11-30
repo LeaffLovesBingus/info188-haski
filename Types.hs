@@ -145,9 +145,7 @@ data GameState = GameState {
     enemies:: Enemies,
     enemyRespawnTimer :: Float,               -- Timer para respawnear enemigos
     nextEnemyId :: Int,                       -- ID para el próximo enemigo
-    exitRequested :: Bool,                    -- Flag para cerrar el juego
-    victoryTriggered :: Bool,
-    defeatTriggered :: Bool
+    exitRequested :: Bool                     -- Flag para cerrar el juego
 } deriving (Show)
 
 -- Tiempo para ganar (3 minutos = 180 segundos)

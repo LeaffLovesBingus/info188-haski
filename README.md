@@ -121,7 +121,6 @@ info188-haski/
 - vector
 - text
 - scientific
-- sdl2-mixer
 
 
 ## Dependencias extras del sistema
@@ -135,12 +134,6 @@ sudo apt update
 - Gloss requiere OpenGL, GLFW y FreeGlut
 ```bash
 sudo apt install freeglut3-dev libglfw3-dev libglew-dev libxi-dev libxrandr-dev libxinerama-dev libxcursor-dev libxxf86vm-dev
-```
-
-- SDL2-Mixer
-```bash
-sudo apt install libsdl2-dev libsdl2-mixer-dev pkg-config
-sudo apt install libvorbis-dev libogg-dev libflac-dev libmpg123-dev
 ```
 
 ## Recursos y Assets
