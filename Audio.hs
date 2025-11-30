@@ -13,11 +13,11 @@ menuMusic :: IORef (Maybe Mix.Music)
 menuMusic = unsafePerformIO $ newIORef Nothing
 {-# NOINLINE menuMusic #-}
 
+-- de acá para abajo de esta seccion están listos
+
 victoryMusic :: IORef (Maybe Mix.Music)
 victoryMusic = unsafePerformIO $ newIORef Nothing
 {-# NOINLINE victoryMusic #-}
-
--- de acá para abajo de esta seccion están listos
 
 defeatMusic :: IORef (Maybe Mix.Music)
 defeatMusic = unsafePerformIO $ newIORef Nothing
