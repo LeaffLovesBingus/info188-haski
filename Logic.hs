@@ -194,83 +194,77 @@ handlePlayingInput event = do
     case event of
         EventMotion pos -> put gs { inputState = inp { mousePos = pos } }
         EventKey (SpecialKey KeyEsc) Down _ _ -> put gs { currentScene = MenuScreen }
+        EventKey (Char 'w') Down _ _ -> put gs { inputState = inp { keyW = True } }
+        EventKey (Char 'w') Up _ _ -> put gs { inputState = inp { keyW = False } }
+        EventKey (Char 's') Down _ _ -> put gs { inputState = inp { keyS = True } }
+        EventKey (Char 's') Up _ _ -> put gs { inputState = inp { keyS = False } }
+        EventKey (Char 'a') Down _ _ -> put gs { inputState = inp { keyA = True } }
+        EventKey (Char 'a') Up _ _ -> put gs { inputState = inp { keyA = False } }
+        EventKey (Char 'd') Down _ _ -> put gs { inputState = inp { keyD = True } }
+        EventKey (Char 'd') Up _ _ -> put gs { inputState = inp { keyD = False } }
+        EventKey (Char 'e') Down _ _ -> put gs { inputState = inp { keyE = True } }
+        EventKey (Char 'e') Up _ _ -> put gs { inputState = inp { keyE = False } }
+        EventKey (Char 'f') Down _ _ -> put gs { inputState = inp { keyF = True } }
+        EventKey (Char 'f') Up _ _ -> put gs { inputState = inp { keyF = False } }
+        EventKey (Char 'W') Down _ _ -> put gs { inputState = inp { keyW = True } }
+        EventKey (Char 'W') Up _ _ -> put gs { inputState = inp { keyW = False } }
+        EventKey (Char 'S') Down _ _ -> put gs { inputState = inp { keyS = True } }
+        EventKey (Char 'S') Up _ _ -> put gs { inputState = inp { keyS = False } }
+        EventKey (Char 'A') Down _ _ -> put gs { inputState = inp { keyA = True } }
+        EventKey (Char 'A') Up _ _ -> put gs { inputState = inp { keyA = False } }
+        EventKey (Char 'D') Down _ _ -> put gs { inputState = inp { keyD = True } }
+        EventKey (Char 'D') Up _ _ -> put gs { inputState = inp { keyD = False } }
+        EventKey (Char 'E') Down _ _ -> put gs { inputState = inp { keyE = True } }
+        EventKey (Char 'E') Up _ _ -> put gs { inputState = inp { keyE = False } }
+        EventKey (Char 'F') Down _ _ -> put gs { inputState = inp { keyF = True } }
+        EventKey (Char 'F') Up _ _ -> put gs { inputState = inp { keyF = False } }
+        EventKey (Char '1') Down _ _ -> put gs { inputState = inp { key1 = True } }
+        EventKey (Char '1') Up _ _ -> put gs { inputState = inp { key1 = False } }
+        EventKey (Char '2') Down _ _ -> put gs { inputState = inp { key2 = True } }
+        EventKey (Char '2') Up _ _ -> put gs { inputState = inp { key2 = False } }
+        EventKey (Char '3') Down _ _ -> put gs { inputState = inp { key3 = True } }
+        EventKey (Char '3') Up _ _ -> put gs { inputState = inp { key3 = False } }
+        EventKey (Char '4') Down _ _ -> put gs { inputState = inp { key4 = True } }
+        EventKey (Char '4') Up _ _ -> put gs { inputState = inp { key4 = False } }
+        EventKey (Char '5') Down _ _ -> put gs { inputState = inp { key5 = True } }
+        EventKey (Char '5') Up _ _ -> put gs { inputState = inp { key5 = False } }
+        EventKey (Char '!') Down _ _ -> put gs { inputState = inp { key1 = True } }
+        EventKey (Char '!') Up _ _ -> put gs { inputState = inp { key1 = False } }
+        EventKey (Char '"') Down _ _ -> put gs { inputState = inp { key2 = True } }
+        EventKey (Char '"') Up _ _ -> put gs { inputState = inp { key2 = False } }
+        EventKey (Char '#') Down _ _ -> put gs { inputState = inp { key3 = True } }
+        EventKey (Char '#') Up _ _ -> put gs { inputState = inp { key3 = False } }
+        EventKey (Char '$') Down _ _ -> put gs { inputState = inp { key4 = True } }
+        EventKey (Char '$') Up _ _ -> put gs { inputState = inp { key4 = False } }
+        EventKey (Char '%') Down _ _ -> put gs { inputState = inp { key5 = True } }
+        EventKey (Char '%') Up _ _ -> put gs { inputState = inp { key5 = False } }
+        EventKey (MouseButton LeftButton) Down _ pos -> put gs { inputState = inp { mouseClick = True, mousePos = pos } }
+        EventKey (MouseButton LeftButton) Up _ _ -> put gs { inputState = inp { mouseClick = False } }
+        EventKey (SpecialKey KeyShiftL) Down _ _ -> put gs { inputState = inp { keyShift = True } }
+        EventKey (SpecialKey KeyShiftL) Up _ _ -> put gs { inputState = inp { keyShift = False } }
 
-        _ | not canMove ->
-            return ()
+        -- DEBUG
+        -- EventKey (SpecialKey KeyUp) Down _ _ -> do
+        --     let (px, py) = playerPos p
+        --         testEnemyPos = (px, py + 60)
+        --     takeDamage 10 testEnemyPos
 
-        _ ->
-            case event of
-                EventKey (Char 'w') Down _ _ -> put gs { inputState = inp { keyW = True } }
-                EventKey (Char 'w') Up _ _ -> put gs { inputState = inp { keyW = False } }
-                EventKey (Char 's') Down _ _ -> put gs { inputState = inp { keyS = True } }
-                EventKey (Char 's') Up _ _ -> put gs { inputState = inp { keyS = False } }
-                EventKey (Char 'a') Down _ _ -> put gs { inputState = inp { keyA = True } }
-                EventKey (Char 'a') Up _ _ -> put gs { inputState = inp { keyA = False } }
-                EventKey (Char 'd') Down _ _ -> put gs { inputState = inp { keyD = True } }
-                EventKey (Char 'd') Up _ _ -> put gs { inputState = inp { keyD = False } }
-                EventKey (Char 'e') Down _ _ -> put gs { inputState = inp { keyE = True } }
-                EventKey (Char 'e') Up _ _ -> put gs { inputState = inp { keyE = False } }
-                EventKey (Char 'f') Down _ _ -> put gs { inputState = inp { keyF = True } }
-                EventKey (Char 'f') Up _ _ -> put gs { inputState = inp { keyF = False } }
-                EventKey (Char 'W') Down _ _ -> put gs { inputState = inp { keyW = True } }
-                EventKey (Char 'W') Up _ _ -> put gs { inputState = inp { keyW = False } }
-                EventKey (Char 'S') Down _ _ -> put gs { inputState = inp { keyS = True } }
-                EventKey (Char 'S') Up _ _ -> put gs { inputState = inp { keyS = False } }
-                EventKey (Char 'A') Down _ _ -> put gs { inputState = inp { keyA = True } }
-                EventKey (Char 'A') Up _ _ -> put gs { inputState = inp { keyA = False } }
-                EventKey (Char 'D') Down _ _ -> put gs { inputState = inp { keyD = True } }
-                EventKey (Char 'D') Up _ _ -> put gs { inputState = inp { keyD = False } }
-                EventKey (Char 'E') Down _ _ -> put gs { inputState = inp { keyE = True } }
-                EventKey (Char 'E') Up _ _ -> put gs { inputState = inp { keyE = False } }
-                EventKey (Char 'F') Down _ _ -> put gs { inputState = inp { keyF = True } }
-                EventKey (Char 'F') Up _ _ -> put gs { inputState = inp { keyF = False } }
-                EventKey (Char '1') Down _ _ -> put gs { inputState = inp { key1 = True } }
-                EventKey (Char '1') Up _ _ -> put gs { inputState = inp { key1 = False } }
-                EventKey (Char '2') Down _ _ -> put gs { inputState = inp { key2 = True } }
-                EventKey (Char '2') Up _ _ -> put gs { inputState = inp { key2 = False } }
-                EventKey (Char '3') Down _ _ -> put gs { inputState = inp { key3 = True } }
-                EventKey (Char '3') Up _ _ -> put gs { inputState = inp { key3 = False } }
-                EventKey (Char '4') Down _ _ -> put gs { inputState = inp { key4 = True } }
-                EventKey (Char '4') Up _ _ -> put gs { inputState = inp { key4 = False } }
-                EventKey (Char '5') Down _ _ -> put gs { inputState = inp { key5 = True } }
-                EventKey (Char '5') Up _ _ -> put gs { inputState = inp { key5 = False } }
-                EventKey (Char '!') Down _ _ -> put gs { inputState = inp { key1 = True } }
-                EventKey (Char '!') Up _ _ -> put gs { inputState = inp { key1 = False } }
-                EventKey (Char '"') Down _ _ -> put gs { inputState = inp { key2 = True } }
-                EventKey (Char '"') Up _ _ -> put gs { inputState = inp { key2 = False } }
-                EventKey (Char '#') Down _ _ -> put gs { inputState = inp { key3 = True } }
-                EventKey (Char '#') Up _ _ -> put gs { inputState = inp { key3 = False } }
-                EventKey (Char '$') Down _ _ -> put gs { inputState = inp { key4 = True } }
-                EventKey (Char '$') Up _ _ -> put gs { inputState = inp { key4 = False } }
-                EventKey (Char '%') Down _ _ -> put gs { inputState = inp { key5 = True } }
-                EventKey (Char '%') Up _ _ -> put gs { inputState = inp { key5 = False } }
-                EventKey (MouseButton LeftButton) Down _ pos -> put gs { inputState = inp { mouseClick = True, mousePos = pos } }
-                EventKey (MouseButton LeftButton) Up _ _ -> put gs { inputState = inp { mouseClick = False } }
-                EventKey (SpecialKey KeyShiftL) Down _ _ -> put gs { inputState = inp { keyShift = True } }
-                EventKey (SpecialKey KeyShiftL) Up _ _ -> put gs { inputState = inp { keyShift = False } }
+        -- EventKey (SpecialKey KeyDown) Down _ _ -> do
+        --     let (px, py) = playerPos p
+        --         testEnemyPos = (px, py - 60)
+        --     takeDamage 10 testEnemyPos
 
-                -- DEBUG
-                EventKey (SpecialKey KeyUp) Down _ _ -> do
-                    let (px, py) = playerPos p
-                        testEnemyPos = (px, py + 60)
-                    takeDamage 10 testEnemyPos
+        -- EventKey (SpecialKey KeyLeft) Down _ _ -> do
+        --     let (px, py) = playerPos p
+        --         testEnemyPos = (px - 60, py)
+        --     takeDamage 10 testEnemyPos
 
-                EventKey (SpecialKey KeyDown) Down _ _ -> do
-                    let (px, py) = playerPos p
-                        testEnemyPos = (px, py - 60)
-                    takeDamage 10 testEnemyPos
+        -- EventKey (SpecialKey KeyRight) Down _ _ -> do
+        --     let (px, py) = playerPos p
+        --         testEnemyPos = (px + 60, py)
+        --     takeDamage 10 testEnemyPos
 
-                EventKey (SpecialKey KeyLeft) Down _ _ -> do
-                    let (px, py) = playerPos p
-                        testEnemyPos = (px - 60, py)
-                    takeDamage 10 testEnemyPos
-
-                EventKey (SpecialKey KeyRight) Down _ _ -> do
-                    let (px, py) = playerPos p
-                        testEnemyPos = (px + 60, py)
-                    takeDamage 10 testEnemyPos
-
-                _ -> return ()
+        _ -> return ()
 
 
 -- Actualizar juego
@@ -1314,8 +1308,8 @@ updateInvulnerability dt = do
         let updatedPlayer = p { playerIsInvulnerable = False }
             updatedInput = resetInputState inp
 
-        put gs { player = updatedPlayer, inputState = updatedInput } 
-
+        put gs { player = updatedPlayer } 
+        --, inputState = updatedInput
 
 -- Resetear inputs
 resetInputState :: InputState -> InputState

@@ -10,7 +10,7 @@ healAmount :: Int
 healAmount = 40
 
 speedBoostDuration :: Float
-speedBoostDuration = 5.0 -- Duración en segundos del boost de velocidad
+speedBoostDuration = 15.0 -- Duración en segundos del boost de velocidad
 
 -- Función principal para manejar el uso de pociones
 handlePotionUse :: State GameState ()
