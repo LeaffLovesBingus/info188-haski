@@ -8,6 +8,8 @@ import qualified Data.Map.Strict as Map
 import MapLoader (CollisionShape(..))
 import Data.Bits ((.&.))
 import Pociones
+import System.IO.Unsafe (unsafePerformIO)
+import System.Exit (exitSuccess)
 
 -- Estado inicial
 initialGameState :: [[Int]] -> [[[Int]]] -> [[Bool]] -> GameState
@@ -132,9 +134,8 @@ handleMenuInput event = do
                 then put gs { currentScene = Playing }
             -- Verificar si se hizo clic en el botón Salir
             else if isInsideButton mx my exitButtonY
-                then error "Saliendo del juego"  -- Esto cierra el juego
+                then unsafePerformIO exitSuccess `seq` return ()
             else return ()
-        EventKey (SpecialKey KeyEsc) Down _ _ -> error "Saliendo del juego"
         _ -> return ()
 
 -- Manejar input en pantallas de victoria/derrota

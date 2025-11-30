@@ -1,139 +1,112 @@
-![Imagen del juego](docs/imagenjuego.png)
+# Haski
 
-# info188-haski: Haski, Aventura Top-Down en Haskell
+Un juego de aventura 2D desarrollado en **Haskell** usando la librería Gloss. Proyecto para INFO188 - Paradigmas de Programación.
 
-**Haski** es un videojuego de acción y aventura con perspectiva *top-down* (desde arriba), desarrollado en **Haskell**. Este proyecto demuestra la aplicación de la programación funcional pura en el desarrollo de videojuegos en dos dimensiones, utilizando la librería gráfica `Gloss` y gestionando la complejidad del estado del juego mediante la mónada `State`.
+## Integrantes
 
-### Integrantes del equipo:
-* Eduardo Montecinos.
-* Cristóbal Silva.
-* Diego Soto.
-* Matías Soto.
-* Matías Toledo.
+- Eduardo Montecinos
+- Jose Cristobal Silva
+- Matias Soto
+- Diego Soto
+- Matías Toledo
 
-![Menú de inicio](docs/imagenmenu.png)
+## Descripcion
 
-## Descripción del proyecto
+Haski es un juego top-down donde controlas a un personaje en un mundo con colisiones, items y objetos destructibles. El juego implementa la monada `State` para manejar el estado del juego de forma funcional.
 
-El objetivo de **Haski** es combatir (o sobrevivir) las olas de enemigos que emergen y persiguen al jugador dentro de un mapa con elementos interactivos (cajas y vasijas que se rompen, armas recogibles para defenderse e ítems que le traen beneficios al protagonista). El motor del juego implementa físicas básicas, detección de colisiones precisa con el entorno y un sistema de renderizado por capas.
+## Objetivo del Juego
 
-El núcleo del juego se basa en la manipulación inmutable del estado (`GameState`), donde cada *frame* o evento de entrada genera un nuevo estado del mundo sin efectos secundarios, siguiendo los principios de Haskell.
+- **Victoria**: Sobrevive durante 3 minutos para ganar.
+- **Derrota**: Si tu barra de vida llega a cero, pierdes.
 
-## Características principales
+## Como Jugar
 
-  * **Motor Gráfico con Gloss:** Renderizado eficiente de *sprites*, animaciones y texto.
-  * **Mapa Dinámico (JSON):** Carga de mapas diseñados en *Tiled* exportados a JSON, soportando múltiples capas (suelo, estructuras, decoración) y metadatos de colisión.
-  * **Sistema de Inventario:** Gestión de 5 *slots* con capacidad de recoger (`Pickup`), equipar y soltar (`Drop`) objetos.
-  * **Armas y Combate:**
-      * **Ballesta:** Dispara proyectiles con físicas lineales y *cooldown*.
-      * **Boomerang:** Implementa una lógica de estado compleja (`Flying` -> `Returning`) con aceleración y retorno dinámico al jugador.
-      * **Espada:** (Implementación visual y lógica de daño a corta distancia).
-  * **Entorno Destructible:** Objetos como barriles y cajas tienen vida, pueden ser destruidos y sueltan *loot* (pociones).
-  * **HUD Interactivo:** Barra de vida, visualización de inventario, *cooldowns* y notificaciones flotantes de objetos.
+- Explora el mapa recogiendo **armas** y **pociones** que encuentres en el suelo.
+- Rompe **contenedores** como cajas y vasijas para obtener items adicionales.
+- Usa las armas para defenderte y las pociones para recuperar vida o mejorar tus estadisticas.
+- Administra tu inventario sabiamente y sobrevive los 3 minutos.
 
-## Instalación y ejecución
+## Caracteristicas
 
-El proyecto utiliza un `Makefile` para facilitar la gestión de dependencias y compilación.
-
-### Requisitos previos
-
-  * GHC (Glasgow Haskell Compiler)
-  * Cabal
-
-### Pasos
-
-1.  **Instalar dependencias:**
-
-    ```bash
-    make install-deps
-    ```
-
-    Esto instalará librerías clave como `gloss`, `gloss-juicy` (imágenes), `aeson` (JSON), `linear`, `mtl`, etc.
-
-2.  **Compilar el juego:**
-
-    ```bash
-    make
-    ```
-
-    Esto generará el ejecutable en la carpeta `bin/`.
-
-3.  **Ejecutar:**
-
-    ```bash
-    make run
-    ```
-
-4.  **Limpiar archivos temporales:**
-
-    ```bash
-    make clean
-    ```
-
------
+- **Mapa por capas** cargado desde Tiled (formato JSON/TMX)
+- **Sistema de colisiones** con formas rectangulares y poligonales
+- **Inventario** con 5 slots para items
+- **Armas**: Ballesta, Boomerang y Espada
+- **Items consumibles**: Curacion, Velocidad, Fuerza
+- **Objetos destructibles** (cajas, vasijas) que sueltan items
+- **HUD** con barra de vida, inventario y temporizador
 
 ## Controles
 
-| Tecla | Acción |
-| :--- | :--- |
-| **W, A, S, D** | Movimiento del personaje |
-| **Shift (Izq)** | Correr (*Sprint*) |
-| **Clic Izquierdo** | Usar objeto equipado (Atacar/Disparar) |
-| **E** | Recoger objeto cercano |
-| **Q** | Soltar objeto equipado |
-| **1 - 5** | Seleccionar *slot* del inventario |
+| Tecla | Accion |
+|-------|--------|
+| W/A/S/D | Mover personaje |
+| Shift | Sprint |
+| E | Recoger item |
+| Q | Soltar item |
+| 1-5 | Seleccionar slot del inventario |
+| Click | Atacar / Usar item |
 
------
+## Ejecucion
 
-## Arquitectura técnica
+- Instalar dependencias (requiere cabal)
+```bash
+make install-deps
+```
+- Compilar el proyecto
+```bash
+make
+```
+- Ejecutar el juego
+```bash
+make run
+```
+- Limpiar archivos compilados
+```bash
+make clean
+```
+## Estructura del Proyecto
 
-El proyecto se divide en módulos funcionales para separar la lógica, el renderizado y los datos.
+```
+info188-haski/
+├── main.hs          # Punto de entrada
+├── Types.hs         # Definición de tipos y constantes
+├── Logic.hs         # Lógica del juego (movimiento, colisiones, input)
+├── Render.hs        # Renderizado de gráficos
+├── Assets.hs        # Carga de sprites y animaciones
+├── MapLoader.hs     # Parser de mapas Tiled (JSON/TSX)
+├── HUD/             # Módulos del HUD
+│   ├── Rendering.hs
+│   ├── HealthBar.hs
+│   ├── Inventory.hs
+│   └── ...
+├── assets/          # Recursos gráficos
+│   ├── pantallas/   # Imágenes de menú, victoria, derrota
+│   ├── entidades/   # Sprites del jugador y entidades
+│   ├── map/         # Archivos del mapa (Tiled)
+│   └── ...
+└── Makefile
+```
 
-### Gestión de estado (State Monad)
+## Dependencias
 
-En lugar de pasar manualmente el estado del juego (`GameState`) a través de docenas de funciones, se utiliza la mónada `State`. Esto permite escribir código imperativo-like dentro de un contexto funcional puro.
+- GHC 9.x
+- gloss
+- gloss-juicy
+- JuicyPixels
+- aeson
+- containers
+- mtl
+- vector
+- text
+- scientific
 
-  * **Logic.hs:** Contiene la lógica de actualización. Funciones como `updateGame`, `handleInputEvent` o `updatePlayerMovement` operan dentro del contexto `State GameState ()`.
-  * **Ventaja:** Facilita la modificación profunda de estructuras anidadas (como actualizar la vida de un objeto destructible específico dentro de una lista en el estado global).
+## Recursos y Assets
 
-### Carga de mapas (MapLoader)
+Los tilesets y sprites utilizados en este proyecto fueron obtenidos de:
 
-El módulo `MapLoader.hs` utiliza `Aeson` para parsear archivos `.JSON` generados por el editor de mapas **Tiled**.
-
-  * **Tilesets:** Se cargan dinámicamente las rutas de las imágenes y los GIDs (Global ID) de cada tile.
-  * **Capas:** El juego renderiza el mapa separando capas "bajo el jugador" (suelo) y "sobre el jugador" (copas de árboles), permitiendo profundidad visual.
-
-### Sistema de colisiones
-
-Se implementa un sistema de colisiones robusto en `Logic.hs` que soporta:
-
-1.  **Colisión Mapa-Jugador:** Verifica si la posición futura del jugador intersecta con algún *tile* sólido o *shape* de colisión definida en el mapa.
-2.  **Colisión Proyectil-Objeto:** Utiliza geometría básica (distancia euclidiana y AABB) para detectar impactos.
-3.  **Objetos Destructibles:** Los objetos tienen *hitboxes* y puntos de vida (`destHealth`). Al llegar a 0, se elimina el tile visual del mapa y se genera una entidad de *loot*.
-
------
-
-## Estructura del código
-
-  * **`Main.hs`**: Punto de entrada. Inicializa la ventana de Gloss, carga los assets/mapas y ejecuta el bucle principal (`play`).
-  * **`Types.hs`**: Define todas las estructuras de datos (`Player`, `GameState`, `WorldItem`, `DestructibleObject`). Es la "verdad" del sistema.
-  * **`Logic.hs`**: El cerebro del juego. Contiene toda la lógica de actualización, física, input y reglas de juego.
-  * **`Render.hs`**: Se encarga de traducir el `GameState` a una imagen (`Picture`) de Gloss. Maneja la cámara y el dibujado de *sprites*.
-  * **`Assets.hs`**: Utiliza `JuicyPixels` para cargar imágenes PNG y convertirlas en texturas utilizables por Gloss.
-  * **`MapLoader.hs`**: Lógica de parseo de JSON y extracción de datos de Tiled.
-  * **`HUD/`**:
-      * `HealthBar.hs`: Dibuja la vida del jugador.
-      * `Inventory.hs`: Renderiza la barra de slots e items.
-      * `Rendering.hs`: Compone la interfaz de usuario completa.
-
------
-
-## Cierre
-
-Este juego ha sido desarrollado como proyecto para la asignatura de **INFO188 Paradigmas de Programación Funcional y Paralelo**.
-
-  * **Sprites y Tilesets:** Pixel Art Top Down - Basic v1.1.2 (y variaciones).
-  * **Librerías Haskell:** Gloss, Aeson, JuicyPixels, Mtl.
-  * **Herramientas:** Tiled (Diseño de niveles), Aseprite (Edición de sprites).
-
------
+- [Raven Fantasy Icons](https://clockworkraven.itch.io/raven-fantasy-icons) - Assets de armas y pociones
+- [Pioxel Art Top Down - Basic](https://cainos.itch.io/pixel-art-top-down-basic) - Tileset y Assets usados para el diseño del mapa
+- [Pixelart ruins](https://www.reddit.com/r/PixelArt/comments/fvdl43/pixelart_ruins/) - Arte para la pantalla de inicio
+- [Pixel art of a winding dirt path through a sunlit forest](https://www.craiyon.com/en/image/Dhn_mOTBSSiD1F49ffZRjg) - Arte para la pantalla de Victoria.
+- [Graveyard](https://www.reddit.com/r/PixelArt/comments/i2x94p/graveyard/) - Arte para la pantalla de Derrota.
