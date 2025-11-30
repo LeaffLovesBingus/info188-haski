@@ -53,11 +53,11 @@
             "scaleInEditor": 1
         },
         "mapa.tmx": {
-            "scale": 1,
+            "scale": 3,
             "selectedLayer": 4,
             "viewCenter": {
-                "x": 1862.5,
-                "y": 817
+                "x": 1023.1666666666665,
+                "y": 578
             }
         }
     },

@@ -9,6 +9,10 @@ type Position = (Float, Float)
 type Velocity = (Float, Float)
 type TileCoord = (Int, Int)
 
+-- Escenas del juego
+data GameScene = MenuScreen | Playing | Victory | Defeat
+    deriving (Eq, Show)
+
 -- Tipos específicos
 data Direction = DirDown | DirRight | DirUp | DirLeft 
     deriving (Eq, Ord, Show, Ix, Bounded)
@@ -105,6 +109,7 @@ data InputState = InputState {
 
 -- Estado del juego
 data GameState = GameState {
+    currentScene :: GameScene,
     player :: Player,
     camera :: Camera,
     projectiles :: [Projectile],

@@ -11,6 +11,7 @@ import Data.Bits ((.&.))
 -- Estado inicial
 initialGameState :: [[Int]] -> [[[Int]]] -> [[Bool]] -> GameState
 initialGameState tiles layers collisions = GameState {
+    currentScene = MenuScreen,
     player = Player { 
         playerPos = spawnAtTile 25 25, 
         playerVel = (0, 0),
@@ -106,6 +107,62 @@ scanForDestructibles gs =
 handleInputEvent :: Event -> State GameState ()
 handleInputEvent event = do
     gs <- get
+    case currentScene gs of
+        MenuScreen -> handleMenuInput event
+        Playing    -> handlePlayingInput event
+        Victory    -> handleEndScreenInput event
+        Defeat     -> handleEndScreenInput event
+
+-- Manejar input en el menú
+handleMenuInput :: Event -> State GameState ()
+handleMenuInput event = do
+    gs <- get
+    case event of
+        EventKey (MouseButton LeftButton) Down _ (mx, my) -> do
+            -- Verificar si se hizo clic en el botón Jugar
+            if isInsideButton mx my playButtonY
+                then put gs { currentScene = Playing }
+            -- Verificar si se hizo clic en el botón Salir
+            else if isInsideButton mx my exitButtonY
+                then error "Saliendo del juego"  -- Esto cierra el juego
+            else return ()
+        EventKey (SpecialKey KeyEsc) Down _ _ -> error "Saliendo del juego"
+        _ -> return ()
+
+-- Manejar input en pantallas de victoria/derrota
+handleEndScreenInput :: Event -> State GameState ()
+handleEndScreenInput event = do
+    gs <- get
+    case event of
+        EventKey (MouseButton LeftButton) Down _ (mx, my) -> do
+            -- Verificar si se hizo clic en el botón Menu (posición Y = -280)
+            if isInsideButton mx my menuButtonY
+                then put gs { currentScene = MenuScreen }
+                else return ()
+        EventKey (SpecialKey KeyEsc) Down _ _ -> put gs { currentScene = MenuScreen }
+        _ -> return ()
+
+-- Verificar si un clic está dentro de un botón
+isInsideButton :: Float -> Float -> Float -> Bool
+isInsideButton mx my buttonY =
+    let halfW = buttonWidth / 2
+        halfH = buttonHeight / 2
+    in mx >= (-halfW) && mx <= halfW && my >= (buttonY - halfH) && my <= (buttonY + halfH)
+
+-- Constantes de botones (deben coincidir con Render.hs)
+buttonWidth, buttonHeight :: Float
+buttonWidth = 200
+buttonHeight = 60
+
+playButtonY, exitButtonY, menuButtonY :: Float
+playButtonY = 20
+exitButtonY = -80
+menuButtonY = -280  -- Botón en pantallas de victoria/derrota
+
+-- Manejar input durante el juego
+handlePlayingInput :: Event -> State GameState ()
+handlePlayingInput event = do
+    gs <- get
     let inp = inputState gs
     case event of
         EventKey (Char 'w') Down _ _ -> put gs { inputState = inp { keyW = True } }
@@ -156,24 +213,29 @@ handleInputEvent event = do
         EventKey (MouseButton LeftButton) Up _ _ -> put gs { inputState = inp { mouseClick = False } }
         EventKey (SpecialKey KeyShiftL) Down _ _ -> put gs { inputState = inp { keyShift = True } }
         EventKey (SpecialKey KeyShiftL) Up _ _ -> put gs { inputState = inp { keyShift = False } }
+        EventKey (SpecialKey KeyEsc) Down _ _ -> put gs { currentScene = MenuScreen }
         EventMotion pos -> put gs { inputState = inp { mousePos = pos } }
         _ -> return ()
 
 -- Actualizar juego
 updateGame :: Float -> State GameState ()
 updateGame dt = do
-    handleSlotSelection         -- Selección de slots con teclado
-    handleItemDrop              -- Soltar items con Q
-    updatePlayerMovement dt
-    updateCamera dt
-    updatePlayerCooldowns dt
-    updateBoomerang dt
-    updateProjectiles dt
-    checkProjectileCollisions dt
-    updateWorldItems dt
-    handleItemPickup
-    updateItemFlash dt          -- Nombre del item cuando lo recoges / seleccionas
-    resetMouseClick
+    gs <- get
+    case currentScene gs of
+        Playing -> do
+            handleSlotSelection         -- Selección de slots con teclado
+            handleItemDrop              -- Soltar items con Q
+            updatePlayerMovement dt
+            updateCamera dt
+            updatePlayerCooldowns dt
+            updateBoomerang dt
+            updateProjectiles dt
+            checkProjectileCollisions dt
+            updateWorldItems dt
+            handleItemPickup
+            updateItemFlash dt          -- Nombre del item cuando lo recoges / seleccionas
+            resetMouseClick
+        _ -> return ()
 
 
 -- Resetea el clic del mouse

@@ -27,6 +27,51 @@ layersCache = unsafePerformIO $ do
     Left _ -> return []
 {-# NOINLINE layersCache #-}
 
+-- Imagen de fondo del menú
+menuBackgroundImage :: Maybe (Image PixelRGBA8)
+menuBackgroundImage = unsafePerformIO $ do
+  result <- readImage "assets/pantallas/inicio.png"
+  return $ case result of
+    Left _ -> Nothing
+    Right dynImg -> Just $ convertRGBA8 dynImg
+{-# NOINLINE menuBackgroundImage #-}
+
+menuBackgroundPicture :: Picture
+menuBackgroundPicture =
+  case menuBackgroundImage of
+    Just img -> fromImageRGBA8 img
+    Nothing -> color (makeColor 0.1 0.15 0.2 1) $ rectangleSolid (fromIntegral screenWidth) (fromIntegral screenHeight)
+
+-- Imagen de fondo de victoria
+victoryBackgroundImage :: Maybe (Image PixelRGBA8)
+victoryBackgroundImage = unsafePerformIO $ do
+  result <- readImage "assets/pantallas/victoria.png"
+  return $ case result of
+    Left _ -> Nothing
+    Right dynImg -> Just $ convertRGBA8 dynImg
+{-# NOINLINE victoryBackgroundImage #-}
+
+victoryBackgroundPicture :: Picture
+victoryBackgroundPicture =
+  case victoryBackgroundImage of
+    Just img -> fromImageRGBA8 img
+    Nothing -> color (makeColor 0.1 0.2 0.1 1) $ rectangleSolid (fromIntegral screenWidth) (fromIntegral screenHeight)
+
+-- Imagen de fondo de derrota
+defeatBackgroundImage :: Maybe (Image PixelRGBA8)
+defeatBackgroundImage = unsafePerformIO $ do
+  result <- readImage "assets/pantallas/derrota.png"
+  return $ case result of
+    Left _ -> Nothing
+    Right dynImg -> Just $ convertRGBA8 dynImg
+{-# NOINLINE defeatBackgroundImage #-}
+
+defeatBackgroundPicture :: Picture
+defeatBackgroundPicture =
+  case defeatBackgroundImage of
+    Just img -> fromImageRGBA8 img
+    Nothing -> color (makeColor 0.2 0.1 0.1 1) $ rectangleSolid (fromIntegral screenWidth) (fromIntegral screenHeight)
+
 tilesetBackground :: Maybe (Image PixelRGBA8)
 tilesetBackground = unsafePerformIO $ do
   result <- readImage "assets/ambiente/pasto.png"
@@ -127,7 +172,70 @@ extractRegion img x y w h
 
 -- Renderizar juego completo
 renderGame :: GameState -> Picture
-renderGame gs =
+renderGame gs = case currentScene gs of
+  MenuScreen -> renderMenuScreen
+  Playing    -> renderPlayingScreen gs
+  Victory    -> renderVictoryScreen
+  Defeat     -> renderDefeatScreen
+
+-- Pantalla de menú principal
+renderMenuScreen :: Picture
+renderMenuScreen = pictures
+  [ -- Fondo con imagen
+    menuBackgroundPicture
+  , -- Botón Jugar
+    translate 0 20 $ renderButton "Jugar" (makeColor 0.2 0.6 0.3 1)
+  , -- Botón Salir
+    translate 0 (-80) $ renderButton "Salir" (makeColor 0.6 0.2 0.2 1)
+  ]
+
+-- Renderizar un botón
+renderButton :: String -> Color -> Picture
+renderButton label btnColor = 
+  let textScale = 0.2
+      -- Aproximación: cada carácter tiene ~60 unidades de ancho a escala 0.2
+      charWidth = 60 * textScale
+      textWidth = fromIntegral (length label) * charWidth
+      textHeight = 100 * textScale  -- Altura aproximada del texto
+      offsetX = -textWidth / 2
+      offsetY = -textHeight / 2
+  in pictures
+    [ color btnColor $ rectangleSolid buttonWidth buttonHeight
+    , color (makeColor 1 1 1 0.3) $ rectangleWire buttonWidth buttonHeight
+    , translate offsetX offsetY $ scale textScale textScale $ color white $ text label
+    ]
+
+-- Constantes de botones
+buttonWidth, buttonHeight :: Float
+buttonWidth = 200
+buttonHeight = 60
+
+-- Posiciones Y de los botones (centro)
+playButtonY, exitButtonY :: Float
+playButtonY = 20
+exitButtonY = -80
+
+-- Pantalla de victoria
+renderVictoryScreen :: Picture
+renderVictoryScreen = pictures
+  [ victoryBackgroundPicture
+  , translate 0 menuButtonY $ renderButton "Menu" (makeColor 0.2 0.5 0.6 1)
+  ]
+
+-- Pantalla de derrota
+renderDefeatScreen :: Picture
+renderDefeatScreen = pictures
+  [ defeatBackgroundPicture
+  , translate 0 menuButtonY $ renderButton "Menu" (makeColor 0.2 0.5 0.6 1)
+  ]
+
+-- Posición Y del botón en pantallas de victoria/derrota
+menuButtonY :: Float
+menuButtonY = -280
+
+-- Pantalla de juego
+renderPlayingScreen :: GameState -> Picture
+renderPlayingScreen gs =
   let cam = cameraPos (camera gs)
       camX = fst cam
       camY = snd cam
