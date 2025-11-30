@@ -1250,7 +1250,17 @@ updateDamageAnimation dt = do
             (kvx, kvy) = playerDamageKnockbackVel p
             currentKnockback = (kvx * (1.0 - easeOutProgress), kvy * (1.0 - easeOutProgress))
             (px, py) = playerPos p
-            newPos = (px + fst currentKnockback * dt, py + snd currentKnockback * dt)
+
+            candidateX = px + fst currentKnockback * dt
+            candidateY = py + snd currentKnockback * dt
+
+            canMoveX = not (playerCollidesAt gs (candidateX, py))
+            canMoveY = not (playerCollidesAt gs (px, candidateY))
+
+            finalX = if canMoveX then candidateX else px
+            finalY = if canMoveY then candidateY else py
+
+            newPos = (finalX, finalY)
             
             -- Actualizar frame de animación
             frameTime = damageAnimationDuration / 4.0  -- 4 frames
