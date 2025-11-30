@@ -3,6 +3,7 @@ module Main where
 import Graphics.Gloss
 import Graphics.Gloss.Interface.IO.Game
 import Control.Monad.State (execState)
+import Control.Monad (when)
 import qualified Data.Map.Strict as Map
 import Types
 import Logic
@@ -10,6 +11,9 @@ import Render
 import Assets
 import MapLoader (loadMapFromJSON, loadGlobalCollisionShapesFromMap)
 import System.Exit (exitSuccess)
+import qualified SDL
+import qualified SDL.Mixer as Mix
+import Audio
 
 main :: IO ()
 main = do
