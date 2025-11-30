@@ -7,6 +7,8 @@ import Control.Monad (when)
 import qualified Data.Map.Strict as Map
 import MapLoader (CollisionShape(..))
 import Data.Bits ((.&.))
+import System.IO.Unsafe (unsafePerformIO)
+import System.Exit (exitSuccess)
 
 -- Estado inicial
 initialGameState :: [[Int]] -> [[[Int]]] -> [[Bool]] -> GameState
@@ -124,9 +126,8 @@ handleMenuInput event = do
                 then put gs { currentScene = Playing }
             -- Verificar si se hizo clic en el botón Salir
             else if isInsideButton mx my exitButtonY
-                then error "Saliendo del juego"  -- Esto cierra el juego
+                then unsafePerformIO exitSuccess `seq` return ()
             else return ()
-        EventKey (SpecialKey KeyEsc) Down _ _ -> error "Saliendo del juego"
         _ -> return ()
 
 -- Manejar input en pantallas de victoria/derrota
@@ -213,7 +214,8 @@ handlePlayingInput event = do
         EventKey (MouseButton LeftButton) Up _ _ -> put gs { inputState = inp { mouseClick = False } }
         EventKey (SpecialKey KeyShiftL) Down _ _ -> put gs { inputState = inp { keyShift = True } }
         EventKey (SpecialKey KeyShiftL) Up _ _ -> put gs { inputState = inp { keyShift = False } }
-        EventKey (SpecialKey KeyEsc) Down _ _ -> put gs { currentScene = MenuScreen }
+        -- ESC deshabilitado temporalmente (causa segfault al volver al menú)
+        -- EventKey (SpecialKey KeyEsc) Down _ _ -> put gs { currentScene = MenuScreen }
         EventMotion pos -> put gs { inputState = inp { mousePos = pos } }
         _ -> return ()
 
