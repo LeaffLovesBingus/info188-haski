@@ -7,6 +7,7 @@ import Control.Monad (when)
 import qualified Data.Map.Strict as Map
 import MapLoader (CollisionShape(..))
 import Data.Bits ((.&.))
+import Pociones
 
 -- Estado inicial
 initialGameState :: [[Int]] -> [[[Int]]] -> [[Bool]] -> GameState
@@ -26,7 +27,8 @@ initialGameState tiles layers collisions = GameState {
         playerInventory = replicate inventorySize Nothing,
         playerSelectedSlot = 0,
         playerItemFlashTimer = 0.0,
-        playerItemFlashState = NoFlash
+        playerItemFlashState = NoFlash,
+        playerSpeedBoostTimer = 0.0
     },
     camera = Camera { cameraPos = spawnAtTile 25 25, cameraTarget = spawnAtTile 25 25 },
     projectiles = [],
@@ -226,6 +228,8 @@ updateGame dt = do
         Playing -> do
             handleSlotSelection         -- Selección de slots con teclado
             handleItemDrop              -- Soltar items con Q
+            handlePotionUse
+            updateSpeedTimer dt
             updatePlayerMovement dt
             updateCamera dt
             updatePlayerCooldowns dt
@@ -238,6 +242,15 @@ updateGame dt = do
             resetMouseClick
         _ -> return ()
 
+updateSpeedTimer :: Float -> State GameState ()
+updateSpeedTimer dt = do
+    gs <- get
+    let p = player gs
+        newTimer = max 0.0 (playerSpeedBoostTimer p - dt)
+    
+    when (newTimer /= playerSpeedBoostTimer p) $ do
+        let newPlayer = p { playerSpeedBoostTimer = newTimer }
+        put gs { player = newPlayer }
 
 -- Resetea el clic del mouse
 resetMouseClick :: State GameState ()
@@ -427,7 +440,8 @@ updatePlayerMovement dt = do
     let p = player gs
         inp = inputState gs
         (x, y) = playerPos p
-        speed = if keyShift inp then playerSprintSpeed else playerBaseSpeed
+        base = if keyShift inp then playerSprintSpeed else playerBaseSpeed
+        speed = if playerSpeedBoostTimer p > 0 then base + 200 else base
         
         dx = (if keyD inp then 1 else 0) - (if keyA inp then 1 else 0)
         dy = (if keyW inp then 1 else 0) - (if keyS inp then 1 else 0)

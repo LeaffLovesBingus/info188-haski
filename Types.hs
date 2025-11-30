@@ -73,7 +73,8 @@ data Player = Player {
     playerInventory :: [Maybe ItemType],
     playerSelectedSlot :: Int,
     playerItemFlashTimer :: Float,
-    playerItemFlashState :: FlashState
+    playerItemFlashState :: FlashState,
+    playerSpeedBoostTimer :: Float
 } deriving (Show)
 
 -- Item en el mundo
