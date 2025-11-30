@@ -1,39 +1,20 @@
+module Enemys where
+
 import Control.Monad.State
 -- para guardar los enemigos
 import qualified Data.Map as M
-
--------------------------------------------
--- DEFINICIONES BASE
--------------------------------------------
-
--- estas tres cosas no lo entiendo lol
-type Position = (Float, Float)
-type Velocity = (Float, Float)
-type TileCoord = (Int, Int)
--- id del enemigo
-type EnemyID = Int
-
--- def. del tipo del enemigo
-data EnemyType = Aerial | Ground deriving (Show, Eq)
-
--- definición de enemigo
-data EnemyState = EnemyState{
-    enemy_id:: EnemyID,
-    health:: Int,
-    position:: Position,
-    enemy_type:: EnemyType,
-    velocity:: Velocity,
-    speed :: Float,
-    radius :: Float
-} deriving (Show)
-
--- estado global que contiene un map de enemigos
-type Enemies = M.Map EnemyID EnemyState
-
+import Codec.Picture
+import Codec.Picture.Types
+import Data.Array qualified as Array
+import Data.Maybe (fromMaybe)
+import Graphics.Gloss
+import Graphics.Gloss.Juicy
+import System.IO.Unsafe (unsafePerformIO)
+import Logic
+import Types
 -------------------------------------------
 -- OPERACIONES PARA EL STATE DE UN ENEMY
 -------------------------------------------
-
 -- daño que recibe el enemigo
 damageReceived :: EnemyID -> Int -> State Enemies ()
 damageReceived eID dmg = modify $ \m ->
@@ -44,7 +25,6 @@ damageReceived eID dmg = modify $ \m ->
             in if newHealth <= 0
                 then M.delete eID m  -- enemigo muere
                 else M.insert eID (enemy { health = newHealth }) m
-
 -------------------------------------------
 -- TRACKEO
 -------------------------------------------
@@ -157,6 +137,18 @@ createEnemyDefault eid pos etype =
 -- Inserta un nuevo enemigo en el map Enemies
 addEnemy :: EnemyState -> State Enemies ()
 addEnemy enemy = modify $ M.insert (enemy_id enemy) enemy
+
+-- Método para generar enemigos dentro del game loop
+spawnEnemyAt :: Position -> EnemyType -> State Enemies ()
+spawnEnemyAt spawnPos etype = do
+    -- Generar un ID único para el enemigo (puedes usar un contador o cualquier otro método)
+    enemies <- get
+    let newID = case M.keys enemies of
+                [] -> 1  -- Si no hay enemigos, el primer ID es 1
+                ids -> maximum ids + 1  -- Si ya hay enemigos, se incrementa el ID más alto
+    let newEnemy = createEnemyDefault newID spawnPos etype  -- Crear el enemigo con la posición de spawn y el tipo
+    -- Agregar el nuevo enemigo al mapa
+    addEnemy newEnemy
 -------------------------------------------
 -- HITBOXES (hitbox circular)
 -------------------------------------------
@@ -217,7 +209,7 @@ resolveEnemyCollisions = do
         -- Encuentra todos los pares que colisionan
         collidingPairs = [(e1, e2) | e1 <- enemyList, 
                                     e2 <- enemyList,
-                                    enemy_id e1 < enemy_id e2,  -- evita duplicados
+                                    enemy_id e1 < enemy_id e2, -- evita duplicados
                                     enemiesCollide e1 e2]
     
     -- Separa cada par que colisiona
@@ -257,10 +249,4 @@ pushEnemiesAwayFromPlayer playerPos playerRadius = modify $ M.map pushAway
                     
                 in enemy { position = newPos }
             else enemy
-        
--- Encuentra todos los enemigos que están tocando al jugador
-getEnemiesCollidingWithPlayer :: Position -> Float -> State Enemies [EnemyID]
-getEnemiesCollidingWithPlayer playerPos playerRadius = do
-    enemies <- get
-    return [enemy_id e | e <- M.elems enemies, 
-            enemyCollidesWithPlayer playerPos playerRadius e]
+

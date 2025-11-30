@@ -121,9 +121,29 @@ data GameState = GameState {
     allLayers :: [[[Int]]],
     collisionMap :: [[Bool]],
     collisionShapes :: Map.Map Int [CollisionShape],
-    randomSeed :: Int
+    randomSeed :: Int,
+    enemies:: Enemies
 } deriving (Show)
 
+-- id del enemigo
+type EnemyID = Int
+
+-- def. del tipo del enemigo
+data EnemyType = Aerial | Ground deriving (Show, Eq)
+
+-- definición de enemigo
+data EnemyState = EnemyState{
+    enemy_id:: EnemyID,
+    health:: Int,
+    position:: Position,
+    enemy_type:: EnemyType,
+    velocity:: Velocity,
+    speed :: Float,
+    radius :: Float
+} deriving (Show)
+
+-- estado global que contiene un map de enemigos
+type Enemies = Map.Map EnemyID EnemyState
 -- Constantes
 
 ------------------- PANTALLA -------------------

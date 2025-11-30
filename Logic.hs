@@ -62,7 +62,8 @@ initialGameState tiles layers collisions = GameState {
     allLayers = layers,
     collisionMap = collisions,
     collisionShapes = Map.empty,
-    randomSeed = 42
+    randomSeed = 42,
+    enemies = Map.empty
 }
 
 -- NUEVO: Escanear el mapa y encontrar objetos destructibles
