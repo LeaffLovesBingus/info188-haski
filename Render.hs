@@ -17,6 +17,7 @@ import MapLoader (CollisionShape (..), TileLayer, TilesetInfo, loadMapFromJSON)
 import System.FilePath (normalise)
 import System.IO.Unsafe (unsafePerformIO)
 import Types
+import qualified Enemys
 
 -- Cache de capas
 layersCache :: [TileLayer]
@@ -261,6 +262,7 @@ renderPlayingScreen gs =
           renderBoomerang gs,
           renderLayers layersAbove,      -- Capas 3,4 (Plantas, Props) - encima del jugador
           renderEnemies gs,              -- Enemigos encima de todas las capas
+          renderEnemyHealthBars gs,
           renderItemFlash gs,
           renderCursor gs,
           renderCooldownBar gs,
@@ -615,3 +617,53 @@ renderEnemies gs =
                     enemyPic
                     
     in pictures (map renderEnemy enemyList)
+
+renderEnemyHealthBars :: GameState -> Picture
+renderEnemyHealthBars gs =
+  let cam = cameraPos (camera gs)
+      camX = fst cam
+      camY = snd cam
+      enemyList = Map.elems (enemies gs)
+      
+      renderBar enemy =
+        let (ex, ey) = position enemy
+            screenX = ex - camX
+            screenY = ey - camY
+            
+            -- Calcular porcentaje de vida
+            maxHealth = fromIntegral (Enemys.defaultHealth (enemy_type enemy))
+            currentHealth = fromIntegral (health enemy)
+            healthPercent = currentHealth / maxHealth
+            
+            -- Dimensiones de la barra
+            barWidth = 40.0
+            barHeight = 5.0
+            barY = screenY + 25  -- Un poco arriba del enemigo
+            
+            fillWidth = barWidth * healthPercent
+            
+            -- Color según vida
+            barColor = if healthPercent > 0.6
+                       then makeColor 0.2 1.0 0.2 0.9  -- Verde
+                       else if healthPercent > 0.3
+                       then makeColor 1.0 0.9 0.0 0.9  -- Amarillo
+                       else makeColor 1.0 0.2 0.2 0.9  -- Rojo
+            
+            -- Fondo negro
+            background = translate screenX barY $
+                color (makeColor 0.0 0.0 0.0 0.8) $
+                rectangleSolid barWidth barHeight
+            
+            -- Barra de vida (relleno)
+            fill = translate (screenX - barWidth/2 + fillWidth/2) barY $
+                color barColor $
+                rectangleSolid fillWidth barHeight
+            
+            -- Borde blanco
+            border = translate screenX barY $
+                color white $
+                rectangleWire barWidth barHeight
+        
+        in pictures [background, fill, border]
+  
+  in pictures (map renderBar enemyList)
