@@ -1,6 +1,7 @@
 module Logic where
 
 import Types
+import Render (renderDefeatScreen, renderVictoryScreen)
 import Graphics.Gloss.Interface.Pure.Game
 import Control.Monad.State
 import Control.Monad (when)
@@ -75,7 +76,7 @@ initialGameState tiles layers collisions = GameState {
     enemies = Map.empty
 }
 
--- NUEVO: Escanear el mapa y encontrar objetos destructibles
+-- Escanear el mapa y encontrar objetos destructibles
 scanForDestructibles :: GameState -> GameState
 scanForDestructibles gs = 
     let layers = allLayers gs
@@ -623,7 +624,7 @@ updateProjectiles dt = do
     
     put gs { projectiles = updatedProjs, player = newPlayer }
 
--- NUEVO: Verificar colisiones de proyectiles
+-- Verificar colisiones de proyectiles
 checkProjectileCollisions :: Float -> State GameState ()
 checkProjectileCollisions dt = do
     gs <- get
@@ -1128,10 +1129,12 @@ takeDamage damage enemyPos = do
         let damageDir = calculateDamageDirection (playerPos p) enemyPos
             animDir = damageDirectionToPlayerDir damageDir
             knockbackVel = calculateKnockbackVelocity damageDir
-            
             newHealth = max 0 (playerHealth p - damage)
+
+        when (newHealth == 0) $ 
+            put gs { currentScene = Defeat }
             
-            updatedPlayer = p {
+        let updatedPlayer = p {
                 playerHealth = newHealth,
                 playerIsTakingDamage = True,
                 playerDamageAnimTimer = damageAnimationDuration,
