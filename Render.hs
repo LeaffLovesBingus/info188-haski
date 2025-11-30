@@ -380,6 +380,9 @@ applyFlips pic flipH flipV flipD
   | flipV                   = scale 1 (-1) pic                -- Flip vertical
   | otherwise               = pic
 
+
+-- Renderiza al jugador
+-- Escoge de forma dinámica la sprite sheet a usar dependiendo del arma equipada del jugador
 renderPlayer :: GameState -> Picture
 renderPlayer gs =
   let p = player gs
@@ -387,8 +390,9 @@ renderPlayer gs =
       (px, py) = playerPos p
       screenX = px - fst cam
       screenY = py - snd cam
-      (vx, vy) = playerVel p
 
+      -- Seleccionar animación del jugador
+      (vx, vy) = playerVel p
       isMoving = vx /= 0 || vy /= 0
       anim = if playerIsTakingDamage p
              then Damage 
@@ -396,16 +400,26 @@ renderPlayer gs =
               then Walk
               else Idle
 
+      -- Determinar rangos de frames para cada tipo de animación
       dir = playerDir p
       frame = playerFrame p
-
       maxFrame = case anim of
         Idle -> 1
         Walk -> 3
         Damage -> 3
-      
       safeFrame = frame `mod` (maxFrame + 1)
-      framePic = playerFrames Array.! (dir, anim, safeFrame)
+
+      -- Seleccionar el array de frames correcto según el arma equipada
+      framesArray = case playerEquippedItem p of
+        Just Ballesta -> playerFramesBallesta
+        Just Espada -> playerFramesEspada
+        Just Boomerang ->
+          if playerHasBoomerang p
+          then playerFramesBoomerang
+          else playerFrames
+        _ -> playerFrames
+
+      framePic = framesArray Array.! (dir, anim, safeFrame)
    in translate screenX screenY $
         scale 2.0 2.0 $
           framePic
