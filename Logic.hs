@@ -14,11 +14,11 @@ initialGameState :: [[Int]] -> [[[Int]]] -> [[Bool]] -> GameState
 initialGameState tiles layers collisions = GameState {
     currentScene = MenuScreen,
     player = Player { 
-        playerPos = spawnAtTile 25 25, 
+        playerPos = spawnAtTileCenter 39 32, 
         playerVel = (0, 0),
         playerHealth = playerBaseHealth, 
         playerSpeed = playerBaseSpeed,
-        playerDir = DirDown, 
+        playerDir = DirUp, 
         playerFrame = 0, 
         playerAnimTime = 0,
         playerEquippedItem = Nothing,
@@ -35,18 +35,18 @@ initialGameState tiles layers collisions = GameState {
         playerDamageKnockbackVel = (0, 0),
         playerIsInvulnerable = False
     },
-    camera = Camera { cameraPos = spawnAtTile 25 25, cameraTarget = spawnAtTile 25 25 },
+    camera = Camera { cameraPos = spawnAtTile 39 32, cameraTarget = spawnAtTile 25 25 },
     projectiles = [],
     boomerang = Nothing,
     worldItems = [
         WorldItem { itemPos = spawnAtTileCenter 53 27, itemType = Ballesta, itemFloatTime = 0 },
         WorldItem { itemPos = spawnAtTileCenter 50 32, itemType = Boomerang, itemFloatTime = 0 },
-        WorldItem { itemPos = spawnAtTileCenter 47 27, itemType = Espada, itemFloatTime = 0 },
+        WorldItem { itemPos = spawnAtTileCenter 47 27, itemType = Espada, itemFloatTime = 0 }
         -- Items de ejemplo
-        WorldItem { itemPos = spawnAtTile 26 27, itemType = Curacion, itemFloatTime = 0 },
-        WorldItem { itemPos = spawnAtTile 27 27, itemType = Fuerza, itemFloatTime = 0 },
-        WorldItem { itemPos = spawnAtTile 28 27, itemType = Velocidad, itemFloatTime = 0 },
-        WorldItem { itemPos = spawnAtTile 29 27, itemType = Stamina, itemFloatTime = 0 }
+        --,WorldItem { itemPos = spawnAtTile 26 27, itemType = Curacion, itemFloatTime = 0 },
+        --WorldItem { itemPos = spawnAtTile 27 27, itemType = Fuerza, itemFloatTime = 0 },
+        --WorldItem { itemPos = spawnAtTile 28 27, itemType = Velocidad, itemFloatTime = 0 },
+        --WorldItem { itemPos = spawnAtTile 29 27, itemType = Stamina, itemFloatTime = 0 }
     ],
     destructibleObjects = [],
     inputState = InputState {
