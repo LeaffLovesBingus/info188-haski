@@ -1,6 +1,6 @@
 # info188-haski: Haski, Aventura Top-Down en Haskell
 
-**Haski** es un videojuego de acción y aventura con perspectiva *top-down* (desde arriba), desarrollado únicamente en **Haskell**. Este proyecto demuestra la aplicación de la programación funcional pura en el desarrollo de videojuegos en dos dimensiones, utilizando la librería gráfica `Gloss` y gestionando la complejidad del estado del juego mediante la mónada `State`.
+**Haski** es un videojuego de acción y aventura con perspectiva *top-down* (desde arriba), desarrollado en **Haskell**. Este proyecto demuestra la aplicación de la programación funcional pura en el desarrollo de videojuegos en dos dimensiones, utilizando la librería gráfica `Gloss` y gestionando la complejidad del estado del juego mediante la mónada `State`.
 
 ### Integrantes del equipo:
 * Eduardo Montecinos.
