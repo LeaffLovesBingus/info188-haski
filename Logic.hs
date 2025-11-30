@@ -608,7 +608,7 @@ updatePlayerMovement dt = do
             let inp = inputState gs
                 (x, y) = playerPos p
                 base = if keyShift inp then playerSprintSpeed else playerBaseSpeed
-                speed = if playerSpeedBoostTimer p > 0 then base + 200 else base
+                speed = if playerSpeedBoostTimer p > 0 then base + potionSpeedBoost else base
         
                 dx = (if keyD inp then 1 else 0) - (if keyA inp then 1 else 0)
                 dy = (if keyW inp then 1 else 0) - (if keyS inp then 1 else 0)

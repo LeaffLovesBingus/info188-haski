@@ -279,6 +279,25 @@ damageKnockbackDistance = 600.0
 playerRadius:: Float
 playerRadius = 15.0
 
+------------------- POCIONES -------------------
+-- Poción de velocidad
+speedBoostDuration :: Float
+speedBoostDuration = 15.0 -- Duración en segundos del boost de velocidad
+
+potionSpeedBoost :: Float
+potionSpeedBoost = 200.0
+
+-- Poción de curación
+healAmount :: Int
+healAmount = 40
+
+-- Poción de fuerza
+strengthBoostDuration :: Float
+strengthBoostDuration = 10.0  -- Duración del boost de fuerza
+
+strengthDamageMultiplier :: Float
+strengthDamageMultiplier = 2.0  -- Multiplicador de daño con poción de fuerza
+
 ------------------- CONFIGURACIÓN DE OBJETOS DESTRUCTIBLES -------------------
 -- GIDs de los objetos destructibles (ids de colisión)
 destructibleGids :: [Int]
@@ -348,7 +367,7 @@ itemName Velocidad = "Pocion de velocidad"
 itemName Stamina = "Pocion de stamina"
 itemName Fuerza = "Pocion de fuerza"
 
--- ENEMIGO
+------------------- ENEMIGOS -------------------
 dmgFromEnemy:: Int
 dmgFromEnemy = 10
 
@@ -361,10 +380,3 @@ maxEnemies = 5  -- Máximo de enemigos en el mapa
 
 enemyRespawnDelay :: Float
 enemyRespawnDelay = 3.0  -- Segundos antes de respawnear un enemigo
-
--- Poción de fuerza
-strengthBoostDuration :: Float
-strengthBoostDuration = 10.0  -- Duración del boost de fuerza
-
-strengthDamageMultiplier :: Float
-strengthDamageMultiplier = 2.0  -- Multiplicador de daño con poción de fuerza

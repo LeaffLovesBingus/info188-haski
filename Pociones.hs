@@ -5,13 +5,6 @@ import Control.Monad (when)
 import Types
 import HUD.Constants (hudColor) -- Opcional, si necesitas colores
 
--- Configuración de balance
-healAmount :: Int
-healAmount = 40
-
-speedBoostDuration :: Float
-speedBoostDuration = 15.0 -- Duración en segundos del boost de velocidad
-
 -- Función principal para manejar el uso de pociones
 handlePotionUse :: State GameState ()
 handlePotionUse = do
