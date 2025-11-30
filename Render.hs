@@ -255,6 +255,7 @@ renderPlayingScreen gs =
    in pictures
         [ renderLayers layersBelow,      -- Capas 0,1,2 (debajo del jugador)
           renderPlayer gs,
+          renderSwordSlash gs,
           renderProjectiles gs,
           renderWorldItems gs,
           renderBoomerang gs,
@@ -267,7 +268,7 @@ renderPlayingScreen gs =
         --, renderDebugCollisions gs      -- Debug
         ]
 
--- NUEVO: Renderizar barras de vida sobre objetos dañados
+-- Renderizar barras de vida sobre objetos dañados
 renderDestructibleHealthBars :: GameState -> Picture
 renderDestructibleHealthBars gs =
   let cam = cameraPos (camera gs)
@@ -560,3 +561,28 @@ renderItemFlash gs =
             scale 0.12 0.12 $
               color fadeColor $
                 text (itemName iType)
+
+
+-- Renderizar el slash de espada
+renderSwordSlash :: GameState -> Picture
+renderSwordSlash gs =
+  case swordSlash gs of
+    Nothing -> Blank
+    Just slash ->
+      let cam = cameraPos (camera gs)
+          camX = fst cam
+          camY = snd cam
+          (sx, sy) = slashPos slash
+          angle = slashAngle slash
+          frame = slashFrame slash
+          
+          screenX = sx - camX
+          screenY = sy - camY
+          
+          framePic = if frame >= 0 && frame < length slashFrames
+                     then slashFrames !! frame
+                     else Blank
+      in translate screenX screenY $
+          rotate (-angle) $
+          scale 0.3 0.3 $
+          framePic

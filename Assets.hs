@@ -43,7 +43,7 @@ loadItemSprite path = do
     Right dyn -> return $ fromImageRGBA8 (convertRGBA8 dyn)
 
 
-------------------- PROJECTILES -------------------
+------------------- ARMAS -------------------
 -- Cargar el asset de boomerang como proyectil
 boomerangProjectileImage :: Maybe (Image PixelRGBA8)
 boomerangProjectileImage = unsafePerformIO $ do
@@ -59,6 +59,22 @@ boomerangProjectilePicture =
     case boomerangProjectileImage of
         Just img -> fromImageRGBA8 img
         Nothing -> color blue (circleSolid 8) -- Por defecto un círculo azul
+
+
+-- Cargar frames del slash de espada
+slashFrames :: [Picture]
+slashFrames = unsafePerformIO $ do
+  frames <- mapM loadSlashFrame [1..6]
+  return frames
+  where
+    loadSlashFrame :: Int -> IO Picture
+    loadSlashFrame frameNum = do
+      let path = "assets/items/slash/" ++ show frameNum ++ ".png"
+      result <- readImage path
+      case result of
+        Left _ -> return Blank
+        Right dynImg -> return $ fromImageRGBA8 (convertRGBA8 dynImg)
+{-# NOINLINE slashFrames #-}
 
 
 ------------------- TILEMAP-------------------

@@ -26,7 +26,7 @@ data ItemType = Ballesta | Boomerang | Espada | Curacion | Velocidad | Stamina |
 data DamageDirection = DamageFromFront | DamageFromBack | DamageFromLeft | DamageFromRight
     deriving (Eq, Show)
 
--- NUEVO: Objeto destructible
+-- Objeto destructible
 data DestructibleObject = DestructibleObject {
     destPos :: Position,          -- Posición del objeto
     destHealth :: Float,          -- Vida actual
@@ -41,7 +41,6 @@ data BoomerangState = Flying | Returning
 
 data FlashState = NoFlash | Showing ItemType | FadingOut ItemType Float
     deriving (Eq, Show)
-
 
 -- Proyectil (Flechas de la ballesta)
 data Projectile = Projectile {
@@ -60,6 +59,14 @@ data BoomerangProjectile = BoomerangProjectile {
     boomerangInitialDir :: (Float, Float)   -- Dirección inicial en la que fue disparado
 } deriving (Show, Eq)
 
+-- Slash de espada
+data SwordSlash = SwordSlash {
+    slashPos :: Position,
+    slashAngle :: Float,
+    slashFrame :: Int,
+    slashTimer :: Float,
+    slashActive :: Bool
+} deriving (Show, Eq)
 
 -- Jugador
 data Player = Player {
@@ -123,6 +130,7 @@ data GameState = GameState {
     camera :: Camera,
     projectiles :: [Projectile],
     boomerang :: Maybe BoomerangProjectile,   -- Solo habrá un boomerang a la vez
+    swordSlash :: Maybe SwordSlash,           -- Solo habrá un espadazo a la vez
     worldItems :: [WorldItem],
     destructibleObjects :: [DestructibleObject],
     inputState :: InputState,
@@ -181,6 +189,7 @@ itemFloatHeight = 8.0
 
 
 ------------------- ARMAS -------------------
+-- Ballesta
 projectileSpeed :: Float
 projectileSpeed = 1200
 
@@ -189,13 +198,6 @@ projectileLifetime = 1.5
 
 arrowDamage :: Float
 arrowDamage = 35.0
-
-boomerangDamage :: Float
-boomerangDamage = 20.0
-
--- Daño que va a inflingir la espada
-swordDamage :: Float
-swordDamage = 30
 
 cooldownBallesta :: Float
 cooldownBallesta = 0.8
@@ -207,6 +209,9 @@ cooldownBarHeight :: Float
 cooldownBarHeight = 4.0 
 
 -- Boomerang
+boomerangDamage :: Float
+boomerangDamage = 20.0
+
 boomerangSpeed :: Float         -- Velocidad de tiro del boomerang
 boomerangSpeed = 800.0          
 
@@ -222,6 +227,18 @@ boomerangReturnAccel = 1000.0
 boomerangCatchRadius :: Float   -- Radio para atrapar al boomerang
 boomerangCatchRadius = 20.0
 
+-- Espada
+swordDamage :: Float
+swordDamage = 30
+
+slashAnimationDuration :: Float
+slashAnimationDuration = 0.2
+
+slashFrameCount :: Int
+slashFrameCount = 6
+
+slashOffset :: Float
+slashOffset = 40.0
 
 ------------------- JUGADOR -------------------
 playerBaseSpeed :: Float

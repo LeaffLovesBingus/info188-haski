@@ -41,6 +41,7 @@ initialGameState tiles layers collisions = GameState {
     camera = Camera { cameraPos = spawnAtTile 39 32, cameraTarget = spawnAtTile 25 25 },
     projectiles = [],
     boomerang = Nothing,
+    swordSlash = Nothing,
     worldItems = [
         WorldItem { itemPos = spawnAtTileCenter 53 27, itemType = Ballesta, itemFloatTime = 0 },
         WorldItem { itemPos = spawnAtTileCenter 50 32, itemType = Boomerang, itemFloatTime = 0 },
@@ -75,6 +76,16 @@ initialGameState tiles layers collisions = GameState {
     randomSeed = 42,
     enemies = Map.empty
 }
+
+
+-- Spawn de entidad en coordenadas de tile (DEVUELVE LA ESQUINA SUPERIOR IZQUIERDA DEL TILE)
+spawnAtTile :: Int -> Int -> (Float, Float)
+spawnAtTile col row = (fromIntegral col * tileSize, fromIntegral row * tileSize)
+
+-- Spawn de entidad en coordenadas de tile (DEVUELVE EL CENTRO DEL TILE)
+spawnAtTileCenter :: Int -> Int -> (Float, Float)
+spawnAtTileCenter col row = ((fromIntegral col * tileSize) + tileSize/2, (fromIntegral row * tileSize) + tileSize/2)
+
 
 -- Escanear el mapa y encontrar objetos destructibles
 scanForDestructibles :: GameState -> GameState
@@ -275,6 +286,7 @@ updateGame dt = do
             updatePlayerCooldowns dt
             updateBoomerang dt
             updateProjectiles dt
+            updateSwordSlash dt
             checkProjectileCollisions dt
             updateWorldItems dt
             handleItemPickup
@@ -465,13 +477,6 @@ playerCollidesAt gs (px, py) =
     
     in or [checkTile c r | c <- colsToCheck, r <- rowsToCheck]
 
--- Spawn de entidad en coordenadas de tile (DEVUELVE LA ESQUINA SUPERIOR IZQUIERDA DEL TILE)
-spawnAtTile :: Int -> Int -> (Float, Float)
-spawnAtTile col row = (fromIntegral col * tileSize, fromIntegral row * tileSize)
-
--- Spawn de entidad en coordenadas de tile (DEVUELVE EL CENTRO DEL TILE)
-spawnAtTileCenter :: Int -> Int -> (Float, Float)
-spawnAtTileCenter col row = ((fromIntegral col * tileSize) + tileSize/2, (fromIntegral row * tileSize) + tileSize/2)
 
 -- Actualizar movimiento del jugador
 updatePlayerMovement :: Float -> State GameState ()
@@ -578,6 +583,101 @@ updateCamera dt = do
         
     put gs { camera = newCam }
 
+
+-- Encontrar objeto destructible en una posición
+findHitObject :: (Float, Float) -> [DestructibleObject] -> Maybe DestructibleObject
+findHitObject (px, py) objs =
+    let hits = filter (\obj -> 
+            let (ox, oy) = destPos obj
+                dist = sqrt ((px - ox) ** 2 + (py - oy) ** 2)
+            in dist < tileSize * 0.8  -- Radio de colisión
+            ) objs
+    in if null hits then Nothing else Just (head hits)
+
+-- Crear item de loot
+createLootItem :: DestructibleObject -> WorldItem
+createLootItem obj = WorldItem {
+    itemPos = destPos obj,
+    itemType = getLootItem (destGid obj),
+    itemFloatTime = 0
+}
+
+-- Eliminar SOLO los tiles en las posiciones específicas del objeto
+removeTileFromLayers :: [[[Int]]] -> DestructibleObject -> [[[Int]]]
+removeTileFromLayers layers obj =
+    let (baseCol, baseRow) = destTilePos obj
+        offsets = getDestructibleOffsets (destGid obj)
+        positionsToRemove = map (\(offsetX, offsetY) -> (baseCol + offsetX, baseRow + offsetY)) offsets
+        background = if null layers then [] else head layers
+
+        replaceInLayer :: Int -> [[Int]] -> [[Int]]
+        replaceInLayer idx layer
+            | idx == 0 = layer  -- keep background layer as-is
+            | otherwise =
+                [ [ if (c, r) `elem` positionsToRemove
+                      then 0  -- make tile empty so underlying layers (background) show through
+                      else gid
+                  | (c, gid) <- zip [0..] rowData ]
+                | (r, rowData) <- zip [0..] layer ]
+
+    in zipWith replaceInLayer [0..] layers
+
+
+------------------- ARMAS Y PROYECTILES -------------------
+
+-- Actualizar cooldowns
+updatePlayerCooldowns :: Float -> State GameState ()
+updatePlayerCooldowns dt = do
+    gs <- get
+    let p = player gs
+        currentCD = playerCooldownBallesta p
+        newCD = max 0.0 (currentCD - dt)
+        newPlayer = p { playerCooldownBallesta = newCD }
+    put gs { player = newPlayer }
+
+
+-- Verificar colisiones de proyectiles
+checkProjectileCollisions :: Float -> State GameState ()
+checkProjectileCollisions dt = do
+    gs <- get
+    let projs = projectiles gs
+        objs = destructibleObjects gs
+        
+        -- Filtrar proyectiles que colisionan
+        -- checkProj usa `gs`, así que se define aquí dentro
+        checkProj (projsAcc, objsAcc, itemsAcc) proj =
+            let (px, py) = projPos proj
+                hitMap = pointCollidesWithMap gs (px, py)
+                maybeHitObj = findHitObject (px, py) objsAcc
+            in case maybeHitObj of
+                Just obj ->
+                    let newHealth = destHealth obj - arrowDamage
+                        updatedObj = obj { destHealth = newHealth }
+                        updatedObjs = map (\o -> if o == obj then updatedObj else o) objsAcc
+                    in (projsAcc, updatedObjs, itemsAcc)
+                Nothing -> if hitMap then (projsAcc, objsAcc, itemsAcc) else (proj : projsAcc, objsAcc, itemsAcc)
+
+        (survivingProjs, damagedObjs, newItems) = foldl checkProj ([], objs, []) projs
+        
+        -- Filtrar objetos destruidos y actualizar mapa
+        (aliveObjs, destroyedObjs) = span (\obj -> destHealth obj > 0) damagedObjs
+        finalObjs = filter (\obj -> destHealth obj > 0) damagedObjs
+        
+        -- Generar items de loot
+        lootItems = [createLootItem obj | obj <- damagedObjs, destHealth obj <= 0]
+        
+        -- Eliminar tiles destruidos
+        updatedLayers = foldl removeTileFromLayers (allLayers gs) 
+                        [obj | obj <- damagedObjs, destHealth obj <= 0]
+    
+    put gs {
+        projectiles = survivingProjs,
+        destructibleObjects = finalObjs,
+        worldItems = worldItems gs ++ lootItems,
+        allLayers = updatedLayers
+    }
+
+
 -- Actualizar proyectiles
 updateProjectiles :: Float -> State GameState ()
 updateProjectiles dt = do
@@ -624,94 +724,82 @@ updateProjectiles dt = do
     
     put gs { projectiles = updatedProjs, player = newPlayer }
 
--- Verificar colisiones de proyectiles
-checkProjectileCollisions :: Float -> State GameState ()
-checkProjectileCollisions dt = do
-    gs <- get
-    let projs = projectiles gs
-        objs = destructibleObjects gs
-        
-        -- Filtrar proyectiles que colisionan
-        -- checkProj usa `gs`, así que se define aquí dentro
-        checkProj (projsAcc, objsAcc, itemsAcc) proj =
-            let (px, py) = projPos proj
-                hitMap = pointCollidesWithMap gs (px, py)
-                maybeHitObj = findHitObject (px, py) objsAcc
-            in case maybeHitObj of
-                Just obj ->
-                    let newHealth = destHealth obj - arrowDamage
-                        updatedObj = obj { destHealth = newHealth }
-                        updatedObjs = map (\o -> if o == obj then updatedObj else o) objsAcc
-                    in (projsAcc, updatedObjs, itemsAcc)
-                Nothing -> if hitMap then (projsAcc, objsAcc, itemsAcc) else (proj : projsAcc, objsAcc, itemsAcc)
 
-        (survivingProjs, damagedObjs, newItems) = foldl checkProj ([], objs, []) projs
-        
-        -- Filtrar objetos destruidos y actualizar mapa
-        (aliveObjs, destroyedObjs) = span (\obj -> destHealth obj > 0) damagedObjs
-        finalObjs = filter (\obj -> destHealth obj > 0) damagedObjs
-        
-        -- Generar items de loot
-        lootItems = [createLootItem obj | obj <- damagedObjs, destHealth obj <= 0]
-        
-        -- Eliminar tiles destruidos
-        updatedLayers = foldl removeTileFromLayers (allLayers gs) 
-                        [obj | obj <- damagedObjs, destHealth obj <= 0]
-    
-    put gs {
-        projectiles = survivingProjs,
-        destructibleObjects = finalObjs,
-        worldItems = worldItems gs ++ lootItems,
-        allLayers = updatedLayers
-    }
-
--- Encontrar objeto destructible en una posición
-findHitObject :: (Float, Float) -> [DestructibleObject] -> Maybe DestructibleObject
-findHitObject (px, py) objs =
-    let hits = filter (\obj -> 
-            let (ox, oy) = destPos obj
-                dist = sqrt ((px - ox) ** 2 + (py - oy) ** 2)
-            in dist < tileSize * 0.8  -- Radio de colisión
-            ) objs
-    in if null hits then Nothing else Just (head hits)
-
--- Crear item de loot
-createLootItem :: DestructibleObject -> WorldItem
-createLootItem obj = WorldItem {
-    itemPos = destPos obj,
-    itemType = getLootItem (destGid obj),
-    itemFloatTime = 0
-}
-
--- Eliminar SOLO los tiles en las posiciones específicas del objeto
-removeTileFromLayers :: [[[Int]]] -> DestructibleObject -> [[[Int]]]
-removeTileFromLayers layers obj =
-    let (baseCol, baseRow) = destTilePos obj
-        offsets = getDestructibleOffsets (destGid obj)
-        positionsToRemove = map (\(offsetX, offsetY) -> (baseCol + offsetX, baseRow + offsetY)) offsets
-        background = if null layers then [] else head layers
-
-        replaceInLayer :: Int -> [[Int]] -> [[Int]]
-        replaceInLayer idx layer
-            | idx == 0 = layer  -- keep background layer as-is
-            | otherwise =
-                [ [ if (c, r) `elem` positionsToRemove
-                      then 0  -- make tile empty so underlying layers (background) show through
-                      else gid
-                  | (c, gid) <- zip [0..] rowData ]
-                | (r, rowData) <- zip [0..] layer ]
-
-    in zipWith replaceInLayer [0..] layers
-
--- Actualizar cooldowns
-updatePlayerCooldowns :: Float -> State GameState ()
-updatePlayerCooldowns dt = do
+-- Crear un slash de espada
+createSwordSlash :: State GameState ()
+createSwordSlash = do
     gs <- get
     let p = player gs
-        currentCD = playerCooldownBallesta p
-        newCD = max 0.0 (currentCD - dt)
-        newPlayer = p { playerCooldownBallesta = newCD }
-    put gs { player = newPlayer }
+        inp = inputState gs
+        (px, py) = playerPos p
+        cam = cameraPos (camera gs)
+        (mx, my) = mousePos inp
+        
+        worldMouseX = mx + fst cam
+        worldMouseY = my + snd cam
+        
+        dx = worldMouseX - px
+        dy = worldMouseY - py
+        angleRad = atan2 dy dx
+        angleDeg = angleRad * 180 / pi
+        
+        slashX = px + cos angleRad * slashOffset
+        slashY = py + sin angleRad * slashOffset
+        
+        newSlash = SwordSlash {
+            slashPos = (slashX, slashY),
+            slashAngle = angleDeg,
+            slashFrame = 0,
+            slashTimer = slashAnimationDuration,
+            slashActive = True
+        }
+    
+    put gs { swordSlash = Just newSlash }
+
+
+-- Actualizar el slash de espada
+updateSwordSlash :: Float -> State GameState ()
+updateSwordSlash dt = do
+    gs <- get
+    let inp = inputState gs
+        p = player gs
+    
+        hasEspada = case playerEquippedItem p of
+            Just Espada -> True
+            _ -> False
+        
+        shouldCreateSlash = mouseClick inp && hasEspada && 
+                           swordSlash gs == Nothing &&
+                           not (playerIsTakingDamage p)
+    
+    when shouldCreateSlash createSwordSlash
+    
+    -- Actualizar slash existente
+    case swordSlash gs of
+        Nothing -> return ()
+        Just slash -> do
+            let timer = slashTimer slash
+                newTimer = max 0 (timer - dt)
+
+                progress = 1.0 - (newTimer / slashAnimationDuration)
+                frameFloat = progress * fromIntegral slashFrameCount
+                newFrame = min (slashFrameCount - 1) (floor frameFloat)
+
+                activeThreshold = slashAnimationDuration * 0.33
+                newActive = newTimer > (slashAnimationDuration - activeThreshold)
+                
+                updatedSlash = slash {
+                    slashFrame = newFrame,
+                    slashTimer = newTimer,
+                    slashActive = newActive
+                }
+            
+            if newTimer <= 0
+                then put gs { swordSlash = Nothing }
+                else put gs { swordSlash = Just updatedSlash }
+
+
+------------------- INVENTARIO E ITEMS -------------------
 
 -- Actualizar animación de items
 updateWorldItems :: Float -> State GameState ()
@@ -728,9 +816,6 @@ findEmptySlot [] _ = Nothing
 findEmptySlot (slot:rest) idx = case slot of
     Nothing -> Just idx
     Just _ -> findEmptySlot rest (idx + 1)
-
-
--- INVENTARIO
 
 
 -- Manejar la recogida de items
@@ -954,7 +1039,7 @@ updateItemFlash dt = do
                     put gs { player = newPlayer }
 
 
--- BOOMERANG
+------------------- BOOMERANG -------------------
 
 -- Verifica si una posición colisiona con el entorno
 positionCollidesWithWorld :: GameState -> (Float, Float) -> Bool
@@ -1086,7 +1171,7 @@ updateBoomerang dt = do
             put gsAfterHit { boomerang = finalBoomerang, player = finalPlayer }
            
 
--- DAÑO
+------------------- DAÑO -------------------
 
 -- Función para calcular la dirección del daño basado en posiciones
 calculateDamageDirection :: Position -> Position -> DamageDirection
