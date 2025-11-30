@@ -22,7 +22,7 @@
         },
         "TX Props with Shadow.tsx": {
             "scaleInDock": 1,
-            "scaleInEditor": 1
+            "scaleInEditor": 1.5
         },
         "TX Props.tsx": {
             "scaleInDock": 0.75,
@@ -63,6 +63,7 @@
     },
     "last.exportedFilePath": "//wsl.localhost/Ubuntu/home/tole/paradigmas/haski/info188-haski/assets/map",
     "last.imagePath": "C:/Users/clayt/Downloads/Pixel Art Top Down - Basic v1.2.2/Texture/Extra",
+    "lastUsedTilesetExportFilter": "Todos los archivos (*)",
     "map.height": 60,
     "map.lastUsedExportFilter": "Todos los archivos (*)",
     "map.lastUsedFormat": "tmx",

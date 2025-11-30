@@ -5,7 +5,7 @@ import Codec.Picture
 import Codec.Picture.Types
 import Control.Exception (IOException, try)
 import Data.Array qualified as Array
-import Data.Bits ((.&.))
+import Data.Bits ((.&.), complement)
 import Data.List (sortBy)
 import Data.Map qualified as Map
 import Data.Maybe (fromMaybe)
@@ -348,12 +348,37 @@ renderTile tiles x y camX camY =
       worldY = fromIntegral (mapH - 1 - y) * tileSize + tileSize / 2
       screenX = worldX - camX
       screenY = worldY - camY
-      tileIndex =
+      rawGid =
         if y >= 0 && y < mapH && x >= 0 && (not (null tiles)) && x < length (head tiles)
           then tiles !! y !! x
           else -1
-      tilePic = if tileIndex <= 0 then Blank else getTileFromGid tileIndex
-   in translate screenX screenY tilePic
+      
+      -- Flags de flip de Tiled
+      flipHorizontal = (rawGid .&. 0x80000000) /= 0
+      flipVertical   = (rawGid .&. 0x40000000) /= 0
+      flipDiagonal   = (rawGid .&. 0x20000000) /= 0
+      
+      -- GID limpio sin flags
+      tileIndex = rawGid .&. 0x1FFFFFFF
+      
+      basePic = if tileIndex <= 0 then Blank else getTileFromGid tileIndex
+      
+      -- Aplicar transformaciones
+      flippedPic = applyFlips basePic flipHorizontal flipVertical flipDiagonal
+      
+   in translate screenX screenY flippedPic
+
+-- Aplicar flags de flip a una imagen
+applyFlips :: Picture -> Bool -> Bool -> Bool -> Picture
+applyFlips pic flipH flipV flipD
+  | flipD && flipH && flipV = rotate 90 $ scale 1 (-1) pic   -- Rotacion 90 + flip
+  | flipD && flipH          = rotate 90 pic                   -- Rotacion 90
+  | flipD && flipV          = rotate (-90) pic                -- Rotacion -90
+  | flipD                   = rotate 90 $ scale (-1) 1 pic    -- Rotacion 90 + flip horizontal
+  | flipH && flipV          = scale (-1) (-1) pic             -- Flip ambos
+  | flipH                   = scale (-1) 1 pic                -- Flip horizontal
+  | flipV                   = scale 1 (-1) pic                -- Flip vertical
+  | otherwise               = pic
 
 renderPlayer :: GameState -> Picture
 renderPlayer gs =
