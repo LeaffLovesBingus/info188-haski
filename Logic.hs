@@ -43,16 +43,12 @@ initialGameState tiles layers collisions = GameState {
     projectiles = [],
     boomerang = Nothing,
     swordSlash = Nothing,
-    worldItems = [
-        WorldItem { itemPos = spawnAtTileCenter 53 27, itemType = Ballesta, itemFloatTime = 0 },
-        WorldItem { itemPos = spawnAtTileCenter 50 32, itemType = Boomerang, itemFloatTime = 0 },
-        WorldItem { itemPos = spawnAtTileCenter 47 27, itemType = Espada, itemFloatTime = 0 }
+    worldItems = initialMapItems,
         -- Items de ejemplo
         --,WorldItem { itemPos = spawnAtTile 26 27, itemType = Curacion, itemFloatTime = 0 },
         --WorldItem { itemPos = spawnAtTile 27 27, itemType = Fuerza, itemFloatTime = 0 },
         --WorldItem { itemPos = spawnAtTile 28 27, itemType = Velocidad, itemFloatTime = 0 },
         --WorldItem { itemPos = spawnAtTile 29 27, itemType = Stamina, itemFloatTime = 0 }
-    ],
     destructibleObjects = [],
     inputState = InputState {
         keyW = False,
@@ -171,6 +167,14 @@ handleEndScreenInput event = do
         -- EventKey (SpecialKey KeyEsc) Down _ _ -> put gs { currentScene = MenuScreen }
         _ -> return ()
 
+-- Para que vuelvan a aparecer las armas en el mapa
+initialMapItems :: [WorldItem]
+initialMapItems = 
+    [ WorldItem { itemPos = spawnAtTileCenter 53 27, itemType = Ballesta, itemFloatTime = 0 }
+    , WorldItem { itemPos = spawnAtTileCenter 50 32, itemType = Boomerang, itemFloatTime = 0 }
+    , WorldItem { itemPos = spawnAtTileCenter 47 27, itemType = Espada, itemFloatTime = 0 }
+    ]
+
 -- Reiniciar el estado del juego para una nueva partida
 resetGameForNewPlay :: GameState -> GameState
 resetGameForNewPlay gs = gs {
@@ -209,7 +213,24 @@ resetGameForNewPlay gs = gs {
     ],
     enemyRespawnTimer = 0.0,
     nextEnemyId = 3,
-    exitRequested = False
+    exitRequested = False,
+    worldItems = initialMapItems,
+    inputState = InputState {
+        keyW = False,
+        keyA = False,
+        keyS = False,
+        keyD = False,
+        keyShift = False,
+        keyE = False,
+        keyF = False,
+        key1 = False,
+        key2 = False,
+        key3 = False,
+        key4 = False,
+        key5 = False,
+        mousePos = (0, 0),
+        mouseClick = False
+    }
 }
 
 -- Verificar si un clic está dentro de un botón
