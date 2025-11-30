@@ -84,12 +84,14 @@ updateGameWrapperIO dt gs = do
 
     -- Si derrota recién ocurrió
     when (defeatTriggered gs' && not (defeatTriggered gs)) $ do
-        stopMusic
+        Mix.haltMusic
+        Mix.setMusicVolume 10
         playMusicLoop defeatTheme
 
     -- Si victoria recién ocurrió
     when (victoryTriggered gs' && not (victoryTriggered gs)) $ do
-        stopMusic
+        Mix.haltMusic
+        Mix.setMusicVolume 10
         playMusicLoop victoryTheme
 
     return gs'
