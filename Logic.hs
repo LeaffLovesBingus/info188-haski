@@ -15,11 +15,11 @@ initialGameState :: [[Int]] -> [[[Int]]] -> [[Bool]] -> GameState
 initialGameState tiles layers collisions = GameState {
     currentScene = MenuScreen,
     player = Player { 
-        playerPos = spawnAtTile 25 25, 
+        playerPos = spawnAtTileCenter 39 32, 
         playerVel = (0, 0),
         playerHealth = playerBaseHealth, 
         playerSpeed = playerBaseSpeed,
-        playerDir = DirDown, 
+        playerDir = DirUp, 
         playerFrame = 0, 
         playerAnimTime = 0,
         playerEquippedItem = Nothing,
@@ -28,20 +28,25 @@ initialGameState tiles layers collisions = GameState {
         playerInventory = replicate inventorySize Nothing,
         playerSelectedSlot = 0,
         playerItemFlashTimer = 0.0,
-        playerItemFlashState = NoFlash
+        playerItemFlashState = NoFlash,
+        playerIsTakingDamage = False,
+        playerDamageAnimTimer = 0.0,
+        playerDamageDirection = DamageFromFront,
+        playerDamageKnockbackVel = (0, 0),
+        playerIsInvulnerable = False
     },
-    camera = Camera { cameraPos = spawnAtTile 25 25, cameraTarget = spawnAtTile 25 25 },
+    camera = Camera { cameraPos = spawnAtTile 39 32, cameraTarget = spawnAtTile 25 25 },
     projectiles = [],
     boomerang = Nothing,
     worldItems = [
         WorldItem { itemPos = spawnAtTileCenter 53 27, itemType = Ballesta, itemFloatTime = 0 },
         WorldItem { itemPos = spawnAtTileCenter 50 32, itemType = Boomerang, itemFloatTime = 0 },
-        WorldItem { itemPos = spawnAtTileCenter 47 27, itemType = Espada, itemFloatTime = 0 },
+        WorldItem { itemPos = spawnAtTileCenter 47 27, itemType = Espada, itemFloatTime = 0 }
         -- Items de ejemplo
-        WorldItem { itemPos = spawnAtTile 26 27, itemType = Curacion, itemFloatTime = 0 },
-        WorldItem { itemPos = spawnAtTile 27 27, itemType = Fuerza, itemFloatTime = 0 },
-        WorldItem { itemPos = spawnAtTile 28 27, itemType = Velocidad, itemFloatTime = 0 },
-        WorldItem { itemPos = spawnAtTile 29 27, itemType = Stamina, itemFloatTime = 0 }
+        --,WorldItem { itemPos = spawnAtTile 26 27, itemType = Curacion, itemFloatTime = 0 },
+        --WorldItem { itemPos = spawnAtTile 27 27, itemType = Fuerza, itemFloatTime = 0 },
+        --WorldItem { itemPos = spawnAtTile 28 27, itemType = Velocidad, itemFloatTime = 0 },
+        --WorldItem { itemPos = spawnAtTile 29 27, itemType = Stamina, itemFloatTime = 0 }
     ],
     destructibleObjects = [],
     inputState = InputState {
@@ -64,7 +69,8 @@ initialGameState tiles layers collisions = GameState {
     allLayers = layers,
     collisionMap = collisions,
     collisionShapes = Map.empty,
-    randomSeed = 42
+    randomSeed = 42,
+    enemies = Map.empty
 }
 
 -- NUEVO: Escanear el mapa y encontrar objetos destructibles
@@ -165,59 +171,89 @@ handlePlayingInput :: Event -> State GameState ()
 handlePlayingInput event = do
     gs <- get
     let inp = inputState gs
+        p = player gs
+        canMove = not (playerIsTakingDamage p)
     case event of
-        EventKey (Char 'w') Down _ _ -> put gs { inputState = inp { keyW = True } }
-        EventKey (Char 'w') Up _ _ -> put gs { inputState = inp { keyW = False } }
-        EventKey (Char 's') Down _ _ -> put gs { inputState = inp { keyS = True } }
-        EventKey (Char 's') Up _ _ -> put gs { inputState = inp { keyS = False } }
-        EventKey (Char 'a') Down _ _ -> put gs { inputState = inp { keyA = True } }
-        EventKey (Char 'a') Up _ _ -> put gs { inputState = inp { keyA = False } }
-        EventKey (Char 'd') Down _ _ -> put gs { inputState = inp { keyD = True } }
-        EventKey (Char 'd') Up _ _ -> put gs { inputState = inp { keyD = False } }
-        EventKey (Char 'e') Down _ _ -> put gs { inputState = inp { keyE = True } }
-        EventKey (Char 'e') Up _ _ -> put gs { inputState = inp { keyE = False } }
-        EventKey (Char 'q') Down _ _ -> put gs { inputState = inp { keyQ = True } }
-        EventKey (Char 'q') Up _ _ -> put gs { inputState = inp { keyQ = False } }
-        EventKey (Char 'W') Down _ _ -> put gs { inputState = inp { keyW = True } }
-        EventKey (Char 'W') Up _ _ -> put gs { inputState = inp { keyW = False } }
-        EventKey (Char 'S') Down _ _ -> put gs { inputState = inp { keyS = True } }
-        EventKey (Char 'S') Up _ _ -> put gs { inputState = inp { keyS = False } }
-        EventKey (Char 'A') Down _ _ -> put gs { inputState = inp { keyA = True } }
-        EventKey (Char 'A') Up _ _ -> put gs { inputState = inp { keyA = False } }
-        EventKey (Char 'D') Down _ _ -> put gs { inputState = inp { keyD = True } }
-        EventKey (Char 'D') Up _ _ -> put gs { inputState = inp { keyD = False } }
-        EventKey (Char 'E') Down _ _ -> put gs { inputState = inp { keyE = True } }
-        EventKey (Char 'E') Up _ _ -> put gs { inputState = inp { keyE = False } }
-        EventKey (Char 'Q') Down _ _ -> put gs { inputState = inp { keyQ = True } }
-        EventKey (Char 'Q') Up _ _ -> put gs { inputState = inp { keyQ = False } }
-        EventKey (Char '1') Down _ _ -> put gs { inputState = inp { key1 = True } }
-        EventKey (Char '1') Up _ _ -> put gs { inputState = inp { key1 = False } }
-        EventKey (Char '2') Down _ _ -> put gs { inputState = inp { key2 = True } }
-        EventKey (Char '2') Up _ _ -> put gs { inputState = inp { key2 = False } }
-        EventKey (Char '3') Down _ _ -> put gs { inputState = inp { key3 = True } }
-        EventKey (Char '3') Up _ _ -> put gs { inputState = inp { key3 = False } }
-        EventKey (Char '4') Down _ _ -> put gs { inputState = inp { key4 = True } }
-        EventKey (Char '4') Up _ _ -> put gs { inputState = inp { key4 = False } }
-        EventKey (Char '5') Down _ _ -> put gs { inputState = inp { key5 = True } }
-        EventKey (Char '5') Up _ _ -> put gs { inputState = inp { key5 = False } }
-        EventKey (Char '!') Down _ _ -> put gs { inputState = inp { key1 = True } }
-        EventKey (Char '!') Up _ _ -> put gs { inputState = inp { key1 = False } }
-        EventKey (Char '"') Down _ _ -> put gs { inputState = inp { key2 = True } }
-        EventKey (Char '"') Up _ _ -> put gs { inputState = inp { key2 = False } }
-        EventKey (Char '#') Down _ _ -> put gs { inputState = inp { key3 = True } }
-        EventKey (Char '#') Up _ _ -> put gs { inputState = inp { key3 = False } }
-        EventKey (Char '$') Down _ _ -> put gs { inputState = inp { key4 = True } }
-        EventKey (Char '$') Up _ _ -> put gs { inputState = inp { key4 = False } }
-        EventKey (Char '%') Down _ _ -> put gs { inputState = inp { key5 = True } }
-        EventKey (Char '%') Up _ _ -> put gs { inputState = inp { key5 = False } }
-        EventKey (MouseButton LeftButton) Down _ pos -> put gs { inputState = inp { mouseClick = True, mousePos = pos } }
-        EventKey (MouseButton LeftButton) Up _ _ -> put gs { inputState = inp { mouseClick = False } }
-        EventKey (SpecialKey KeyShiftL) Down _ _ -> put gs { inputState = inp { keyShift = True } }
-        EventKey (SpecialKey KeyShiftL) Up _ _ -> put gs { inputState = inp { keyShift = False } }
-        -- ESC deshabilitado temporalmente (causa segfault al volver al menú)
-        -- EventKey (SpecialKey KeyEsc) Down _ _ -> put gs { currentScene = MenuScreen }
         EventMotion pos -> put gs { inputState = inp { mousePos = pos } }
-        _ -> return ()
+        EventKey (SpecialKey KeyEsc) Down _ _ -> put gs { currentScene = MenuScreen }
+
+        _ | not canMove ->
+            return ()
+
+        _ ->
+            case event of
+                EventKey (Char 'w') Down _ _ -> put gs { inputState = inp { keyW = True } }
+                EventKey (Char 'w') Up _ _ -> put gs { inputState = inp { keyW = False } }
+                EventKey (Char 's') Down _ _ -> put gs { inputState = inp { keyS = True } }
+                EventKey (Char 's') Up _ _ -> put gs { inputState = inp { keyS = False } }
+                EventKey (Char 'a') Down _ _ -> put gs { inputState = inp { keyA = True } }
+                EventKey (Char 'a') Up _ _ -> put gs { inputState = inp { keyA = False } }
+                EventKey (Char 'd') Down _ _ -> put gs { inputState = inp { keyD = True } }
+                EventKey (Char 'd') Up _ _ -> put gs { inputState = inp { keyD = False } }
+                EventKey (Char 'e') Down _ _ -> put gs { inputState = inp { keyE = True } }
+                EventKey (Char 'e') Up _ _ -> put gs { inputState = inp { keyE = False } }
+                EventKey (Char 'q') Down _ _ -> put gs { inputState = inp { keyQ = True } }
+                EventKey (Char 'q') Up _ _ -> put gs { inputState = inp { keyQ = False } }
+                EventKey (Char 'W') Down _ _ -> put gs { inputState = inp { keyW = True } }
+                EventKey (Char 'W') Up _ _ -> put gs { inputState = inp { keyW = False } }
+                EventKey (Char 'S') Down _ _ -> put gs { inputState = inp { keyS = True } }
+                EventKey (Char 'S') Up _ _ -> put gs { inputState = inp { keyS = False } }
+                EventKey (Char 'A') Down _ _ -> put gs { inputState = inp { keyA = True } }
+                EventKey (Char 'A') Up _ _ -> put gs { inputState = inp { keyA = False } }
+                EventKey (Char 'D') Down _ _ -> put gs { inputState = inp { keyD = True } }
+                EventKey (Char 'D') Up _ _ -> put gs { inputState = inp { keyD = False } }
+                EventKey (Char 'E') Down _ _ -> put gs { inputState = inp { keyE = True } }
+                EventKey (Char 'E') Up _ _ -> put gs { inputState = inp { keyE = False } }
+                EventKey (Char 'Q') Down _ _ -> put gs { inputState = inp { keyQ = True } }
+                EventKey (Char 'Q') Up _ _ -> put gs { inputState = inp { keyQ = False } }
+                EventKey (Char '1') Down _ _ -> put gs { inputState = inp { key1 = True } }
+                EventKey (Char '1') Up _ _ -> put gs { inputState = inp { key1 = False } }
+                EventKey (Char '2') Down _ _ -> put gs { inputState = inp { key2 = True } }
+                EventKey (Char '2') Up _ _ -> put gs { inputState = inp { key2 = False } }
+                EventKey (Char '3') Down _ _ -> put gs { inputState = inp { key3 = True } }
+                EventKey (Char '3') Up _ _ -> put gs { inputState = inp { key3 = False } }
+                EventKey (Char '4') Down _ _ -> put gs { inputState = inp { key4 = True } }
+                EventKey (Char '4') Up _ _ -> put gs { inputState = inp { key4 = False } }
+                EventKey (Char '5') Down _ _ -> put gs { inputState = inp { key5 = True } }
+                EventKey (Char '5') Up _ _ -> put gs { inputState = inp { key5 = False } }
+                EventKey (Char '!') Down _ _ -> put gs { inputState = inp { key1 = True } }
+                EventKey (Char '!') Up _ _ -> put gs { inputState = inp { key1 = False } }
+                EventKey (Char '"') Down _ _ -> put gs { inputState = inp { key2 = True } }
+                EventKey (Char '"') Up _ _ -> put gs { inputState = inp { key2 = False } }
+                EventKey (Char '#') Down _ _ -> put gs { inputState = inp { key3 = True } }
+                EventKey (Char '#') Up _ _ -> put gs { inputState = inp { key3 = False } }
+                EventKey (Char '$') Down _ _ -> put gs { inputState = inp { key4 = True } }
+                EventKey (Char '$') Up _ _ -> put gs { inputState = inp { key4 = False } }
+                EventKey (Char '%') Down _ _ -> put gs { inputState = inp { key5 = True } }
+                EventKey (Char '%') Up _ _ -> put gs { inputState = inp { key5 = False } }
+                EventKey (MouseButton LeftButton) Down _ pos -> put gs { inputState = inp { mouseClick = True, mousePos = pos } }
+                EventKey (MouseButton LeftButton) Up _ _ -> put gs { inputState = inp { mouseClick = False } }
+                EventKey (SpecialKey KeyShiftL) Down _ _ -> put gs { inputState = inp { keyShift = True } }
+                EventKey (SpecialKey KeyShiftL) Up _ _ -> put gs { inputState = inp { keyShift = False } }
+
+                -- DEBUG
+                EventKey (SpecialKey KeyUp) Down _ _ -> do
+                    let (px, py) = playerPos p
+                        testEnemyPos = (px, py + 60)
+                    takeDamage 10 testEnemyPos
+
+                EventKey (SpecialKey KeyDown) Down _ _ -> do
+                    let (px, py) = playerPos p
+                        testEnemyPos = (px, py - 60)
+                    takeDamage 10 testEnemyPos
+
+                EventKey (SpecialKey KeyLeft) Down _ _ -> do
+                    let (px, py) = playerPos p
+                        testEnemyPos = (px - 60, py)
+                    takeDamage 10 testEnemyPos
+
+                EventKey (SpecialKey KeyRight) Down _ _ -> do
+                    let (px, py) = playerPos p
+                        testEnemyPos = (px + 60, py)
+                    takeDamage 10 testEnemyPos
+
+                _ -> return ()
+
 
 -- Actualizar juego
 updateGame :: Float -> State GameState ()
@@ -225,6 +261,8 @@ updateGame dt = do
     gs <- get
     case currentScene gs of
         Playing -> do
+            updateDamageAnimation dt
+            updateInvulnerability dt
             handleSlotSelection         -- Selección de slots con teclado
             handleItemDrop              -- Soltar items con Q
             updatePlayerMovement dt
@@ -425,62 +463,67 @@ spawnAtTileCenter col row = ((fromIntegral col * tileSize) + tileSize/2, (fromIn
 updatePlayerMovement :: Float -> State GameState ()
 updatePlayerMovement dt = do
     gs <- get
-    let p = player gs
-        inp = inputState gs
-        (x, y) = playerPos p
-        speed = if keyShift inp then playerSprintSpeed else playerBaseSpeed
-        
-        dx = (if keyD inp then 1 else 0) - (if keyA inp then 1 else 0)
-        dy = (if keyW inp then 1 else 0) - (if keyS inp then 1 else 0)
-        
-        isMoving = dx /= 0 || dy /= 0
-        
-        len = sqrt (dx * dx + dy * dy)
-        (ndx, ndy) = if len > 0 then (dx / len, dy / len) else (0, 0)
-        
-        newVel = if isMoving then (ndx * speed, ndy * speed) else (0, 0)
-        
-        candidateX = x + ndx * speed * dt
-        candidateY = y + ndy * speed * dt
-        
-        canMoveX = not (playerCollidesAt gs (candidateX, y))
-        canMoveY = not (playerCollidesAt gs (x, candidateY))
-        
-        finalX = if canMoveX then candidateX else x
-        finalY = if canMoveY then candidateY else y
-        
-        finalPos = (finalX, finalY)
-        
-        newDir = if not isMoving then playerDir p
-                 else if abs dx > abs dy
-                      then if dx > 0 then DirRight else DirLeft
-                      else if dy > 0 then DirUp else DirDown
-        
-        newAnimTime = playerAnimTime p + dt
-
-        (finalFrame, finalAnimTime) = if isMoving 
-            then
-                let frameTime = 0.125
-                    totalFrames = 4
-                in if newAnimTime >= frameTime
-                    then ((playerFrame p + 1) `mod` totalFrames, newAnimTime - frameTime)
-                    else (playerFrame p, newAnimTime)
-            else 
-                let frameTime = 0.5
-                    totalFrames = 2
-                in if newAnimTime >= frameTime
-                    then ((playerFrame p + 1) `mod` totalFrames, newAnimTime - frameTime)
-                    else (playerFrame p, newAnimTime)
-        
-        newPlayer = p { 
-            playerPos = finalPos, 
-            playerVel = newVel,
-            playerDir = newDir,
-            playerFrame = finalFrame,
-            playerAnimTime = finalAnimTime
-        }
     
-    put gs { player = newPlayer }
+    let p = player gs
+
+    if playerIsTakingDamage p
+        then return ()  -- No hacer nada
+        else do
+            let inp = inputState gs
+                (x, y) = playerPos p
+                speed = if keyShift inp then playerSprintSpeed else playerBaseSpeed
+                
+                dx = (if keyD inp then 1 else 0) - (if keyA inp then 1 else 0)
+                dy = (if keyW inp then 1 else 0) - (if keyS inp then 1 else 0)
+                
+                isMoving = dx /= 0 || dy /= 0
+                
+                len = sqrt (dx * dx + dy * dy)
+                (ndx, ndy) = if len > 0 then (dx / len, dy / len) else (0, 0)
+                
+                newVel = if isMoving then (ndx * speed, ndy * speed) else (0, 0)
+                
+                candidateX = x + ndx * speed * dt
+                candidateY = y + ndy * speed * dt
+                
+                canMoveX = not (playerCollidesAt gs (candidateX, y))
+                canMoveY = not (playerCollidesAt gs (x, candidateY))
+                
+                finalX = if canMoveX then candidateX else x
+                finalY = if canMoveY then candidateY else y
+                
+                finalPos = (finalX, finalY)
+                
+                newDir = if not isMoving then playerDir p
+                        else if abs dx > abs dy
+                            then if dx > 0 then DirRight else DirLeft
+                            else if dy > 0 then DirUp else DirDown
+                
+                newAnimTime = playerAnimTime p + dt
+
+                (finalFrame, finalAnimTime) = if isMoving 
+                    then
+                        let frameTime = 0.125
+                            totalFrames = 4
+                        in if newAnimTime >= frameTime
+                            then ((playerFrame p + 1) `mod` totalFrames, newAnimTime - frameTime)
+                            else (playerFrame p, newAnimTime)
+                    else 
+                        let frameTime = 0.5
+                            totalFrames = 2
+                        in if newAnimTime >= frameTime
+                            then ((playerFrame p + 1) `mod` totalFrames, newAnimTime - frameTime)
+                            else (playerFrame p, newAnimTime)
+                
+                newPlayer = p { 
+                    playerPos = finalPos, 
+                    playerVel = newVel,
+                    playerDir = newDir,
+                    playerFrame = finalFrame,
+                    playerAnimTime = finalAnimTime
+                }
+            
+            put gs { player = newPlayer }
 
 -- Actualizar cámara
 updateCamera :: Float -> State GameState ()
@@ -539,7 +582,7 @@ updateProjectiles dt = do
 
         canShoot = playerCooldownBallesta p <= 0.0
         
-        (newProjs, newPlayer) = if mouseClick inp && hasBallesta && canShoot
+        (newProjs, newPlayer) = if mouseClick inp && hasBallesta && canShoot && not (playerIsTakingDamage p)
                    then let dx = worldMouseX - px
                             dy = worldMouseY - py
                             len = sqrt (dx * dx + dy * dy)
@@ -925,7 +968,7 @@ updateBoomerang dt = do
             _ -> False
 
         -- Boomerang equipado, el boomerang está en las manos del jugador y no existe otra instancia de boomerang en el mundo
-        canThrow = hasBoomerangEquipped && playerHasBoomerang p && boomerang gs == Nothing
+        canThrow = hasBoomerangEquipped && playerHasBoomerang p && boomerang gs == Nothing && not (playerIsTakingDamage p)
 
         -- Si se detectó el clic y se dan las condiciones, lanzar el boomerang
         newBoomerang = if mouseClick inp && canThrow
@@ -1027,3 +1070,143 @@ updateBoomerang dt = do
 
             put gsAfterHit { boomerang = finalBoomerang, player = finalPlayer }
            
+
+-- DAÑO
+
+-- Función para calcular la dirección del daño basado en posiciones
+calculateDamageDirection :: Position -> Position -> DamageDirection
+calculateDamageDirection playerPos enemyPos =
+    let (px, py) = playerPos
+        (ex, ey) = enemyPos
+        dx = ex - px
+        dy = ey - py
+    in if abs dx > abs dy
+       then if dx > 0 then DamageFromRight else DamageFromLeft
+       else if dy > 0 then DamageFromBack else DamageFromFront
+
+-- Convertir DamageDirection a Direction para la animación
+damageDirectionToPlayerDir :: DamageDirection -> Direction
+damageDirectionToPlayerDir DamageFromFront = DirDown
+damageDirectionToPlayerDir DamageFromBack = DirUp
+damageDirectionToPlayerDir DamageFromLeft = DirLeft
+damageDirectionToPlayerDir DamageFromRight = DirRight
+
+-- Calcular velocidad de knockback (ease-out)
+calculateKnockbackVelocity :: DamageDirection -> Velocity
+calculateKnockbackVelocity dir =
+    let speed = damageKnockbackDistance / damageAnimationDuration
+    in case dir of
+        DamageFromFront -> (0, speed)   -- Empujar hacia abajo
+        DamageFromBack -> (0, -speed)     -- Empujar hacia arriba
+        DamageFromLeft -> (speed, 0)     -- Empujar hacia derecha
+        DamageFromRight -> (-speed, 0)   -- Empujar hacia izquierda
+
+-- Función principal para infligir daño al jugador
+takeDamage :: Int -> Position -> State GameState ()
+takeDamage damage enemyPos = do
+    gs <- get
+    let p = player gs
+        
+        -- Solo aplicar daño si no está invulnerable y no está tomando daño
+        canTakeDamage = not (playerIsInvulnerable p) && not (playerIsTakingDamage p)
+    
+    when canTakeDamage $ do
+        let damageDir = calculateDamageDirection (playerPos p) enemyPos
+            animDir = damageDirectionToPlayerDir damageDir
+            knockbackVel = calculateKnockbackVelocity damageDir
+            
+            newHealth = max 0 (playerHealth p - damage)
+            
+            updatedPlayer = p {
+                playerHealth = newHealth,
+                playerIsTakingDamage = True,
+                playerDamageAnimTimer = damageAnimationDuration,
+                playerDamageDirection = damageDir,
+                playerDamageKnockbackVel = knockbackVel,
+                playerIsInvulnerable = True,
+                playerDir = animDir,
+                playerFrame = 0,
+                playerAnimTime = 0
+            }
+        
+        put gs { player = updatedPlayer }
+
+-- Actualizar la animación de daño
+updateDamageAnimation :: Float -> State GameState ()
+updateDamageAnimation dt = do
+    gs <- get
+    let p = player gs
+    
+    when (playerIsTakingDamage p) $ do
+        let timer = playerDamageAnimTimer p
+            newTimer = max 0 (timer - dt)
+            
+            progress = 1.0 - (newTimer / damageAnimationDuration)
+            easeOutProgress = 1.0 - (1.0 - progress) ** 2
+            
+            -- Aplicar knockback con ease-out
+            (kvx, kvy) = playerDamageKnockbackVel p
+            currentKnockback = (kvx * (1.0 - easeOutProgress), kvy * (1.0 - easeOutProgress))
+            (px, py) = playerPos p
+            newPos = (px + fst currentKnockback * dt, py + snd currentKnockback * dt)
+            
+            -- Actualizar frame de animación
+            frameTime = damageAnimationDuration / 4.0  -- 4 frames
+            newAnimTime = playerAnimTime p + dt
+            (newFrame, finalAnimTime) = if newAnimTime >= frameTime
+                then ((playerFrame p + 1) `mod` 4, newAnimTime - frameTime)
+                else (playerFrame p, newAnimTime)
+            
+            -- Verificar si la animación terminó
+            animationEnded = newTimer <= 0
+            
+            updatedPlayer = if animationEnded
+                then p {
+                    playerPos = newPos,
+                    playerIsTakingDamage = False,
+                    playerDamageAnimTimer = 0,
+                    playerFrame = 0,
+                    playerAnimTime = 0
+                    -- playerIsInvulnerable se mantiene en True
+                }
+                else p {
+                    playerPos = newPos,
+                    playerDamageAnimTimer = newTimer,
+                    playerFrame = newFrame,
+                    playerAnimTime = finalAnimTime
+                }
+        
+        put gs { player = updatedPlayer }
+
+-- Actualizar invulnerabilidad
+updateInvulnerability :: Float -> State GameState ()
+updateInvulnerability dt = do
+    gs <- get
+    let p = player gs
+        inp = inputState gs
+    
+    -- Si está invulnerable pero NO está en animación de daño
+    when (playerIsInvulnerable p && not (playerIsTakingDamage p)) $ do
+        let updatedPlayer = p { playerIsInvulnerable = False }
+            updatedInput = resetInputState inp
+
+        put gs { player = updatedPlayer, inputState = updatedInput } 
+
+
+-- Resetear inputs
+resetInputState :: InputState -> InputState
+resetInputState inp = inp 
+    { keyW = False
+    , keyA = False
+    , keyS = False
+    , keyD = False
+    , keyShift = False
+    , keyE = False
+    , keyQ = False
+    , key1 = False
+    , key2 = False
+    , key3 = False
+    , key4 = False
+    , key5 = False
+    , mouseClick = False
+    }

@@ -17,11 +17,14 @@ data GameScene = MenuScreen | Playing | Victory | Defeat
 data Direction = DirDown | DirRight | DirUp | DirLeft 
     deriving (Eq, Ord, Show, Ix, Bounded)
 
-data AnimType = Idle | Walk 
+data AnimType = Idle | Walk | Damage 
     deriving (Eq, Ord, Show, Ix, Bounded)
 
 data ItemType = Ballesta | Boomerang | Espada | Curacion | Velocidad | Stamina | Fuerza
     deriving (Eq, Ord, Show, Ix, Bounded)
+
+data DamageDirection = DamageFromFront | DamageFromBack | DamageFromLeft | DamageFromRight
+    deriving (Eq, Show)
 
 -- NUEVO: Objeto destructible
 data DestructibleObject = DestructibleObject {
@@ -73,7 +76,12 @@ data Player = Player {
     playerInventory :: [Maybe ItemType],
     playerSelectedSlot :: Int,
     playerItemFlashTimer :: Float,
-    playerItemFlashState :: FlashState
+    playerItemFlashState :: FlashState,
+    playerIsTakingDamage :: Bool,
+    playerDamageAnimTimer :: Float,
+    playerDamageDirection :: DamageDirection,
+    playerDamageKnockbackVel :: Velocity,
+    playerIsInvulnerable :: Bool
 } deriving (Show)
 
 -- Item en el mundo
@@ -121,9 +129,29 @@ data GameState = GameState {
     allLayers :: [[[Int]]],
     collisionMap :: [[Bool]],
     collisionShapes :: Map.Map Int [CollisionShape],
-    randomSeed :: Int
+    randomSeed :: Int,
+    enemies:: Enemies
 } deriving (Show)
 
+-- id del enemigo
+type EnemyID = Int
+
+-- def. del tipo del enemigo
+data EnemyType = Aerial | Ground deriving (Show, Eq)
+
+-- definición de enemigo
+data EnemyState = EnemyState{
+    enemy_id:: EnemyID,
+    health:: Int,
+    position:: Position,
+    enemy_type:: EnemyType,
+    velocity:: Velocity,
+    speed :: Float,
+    radius :: Float
+} deriving (Show)
+
+-- estado global que contiene un map de enemigos
+type Enemies = Map.Map EnemyID EnemyState
 -- Constantes
 
 ------------------- PANTALLA -------------------
@@ -210,8 +238,13 @@ playerCollisionHalfSize = 14.0
 playerCollisionOffsetY :: Float
 playerCollisionOffsetY = -20.0
 
+damageAnimationDuration :: Float
+damageAnimationDuration = 0.5
 
--- CONFIGURACIÓN DE OBJETOS DESTRUCTIBLES
+damageKnockbackDistance :: Float
+damageKnockbackDistance = 80.0
+
+------------------- CONFIGURACIÓN DE OBJETOS DESTRUCTIBLES -------------------
 -- GIDs de los objetos destructibles (ids de colisión)
 destructibleGids :: [Int]
 destructibleGids = [1665 + 85, 1665 + 21, 1665 + 149]  -- [1750, 1686, 1814]

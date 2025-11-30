@@ -363,11 +363,22 @@ renderPlayer gs =
       screenX = px - fst cam
       screenY = py - snd cam
       (vx, vy) = playerVel p
+
       isMoving = vx /= 0 || vy /= 0
-      anim = if isMoving then Walk else Idle
+      anim = if playerIsTakingDamage p
+             then Damage 
+             else if isMoving
+              then Walk
+              else Idle
+
       dir = playerDir p
       frame = playerFrame p
-      maxFrame = if anim == Idle then 1 else 3
+
+      maxFrame = case anim of
+        Idle -> 1
+        Walk -> 3
+        Damage -> 3
+      
       safeFrame = frame `mod` (maxFrame + 1)
       framePic = playerFrames Array.! (dir, anim, safeFrame)
    in translate screenX screenY $
