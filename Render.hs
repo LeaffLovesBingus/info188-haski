@@ -608,7 +608,7 @@ renderEnemies gs =
                 enemyPic = enemyFrames Array.! safeFrame
                 
                 -- Escala del sprite
-                spriteScale = 2.0
+                spriteScale = 1.3
                 
             in translate screenX screenY $
                 scale spriteScale spriteScale $
