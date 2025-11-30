@@ -1,17 +1,144 @@
 module Enemys where
 
 import Control.Monad.State
--- para guardar los enemigos
 import qualified Data.Map as M
-import Codec.Picture
-import Codec.Picture.Types
-import Data.Array qualified as Array
-import Data.Maybe (fromMaybe)
-import Graphics.Gloss
-import Graphics.Gloss.Juicy
-import System.IO.Unsafe (unsafePerformIO)
-import Logic
 import Types
+import System.IO.Unsafe (unsafePerformIO)
+
+-------------------------------------------
+-- INTEGRACIÓN CON GAMESTATE
+-------------------------------------------
+
+-- Actualizar enemigos en el contexto del GameState
+modifyEnemies :: (Enemies -> Enemies) -> State GameState ()
+modifyEnemies f = modify $ \gs -> gs { enemies = f (enemies gs) }
+
+-- Actualizar tracking de TODOS los enemigos hacia el jugador
+updateEnemyTracking :: Float -> State GameState ()
+updateEnemyTracking dt = do
+    gs <- get
+    let pPos = playerPos (player gs)
+        currentEnemies = enemies gs
+        -- Aplicar tracking a todos los enemigos
+        updatedEnemies = M.map (trackTowardsPlayer pPos) currentEnemies
+    put gs { enemies = updatedEnemies }
+  where
+    trackTowardsPlayer :: Position -> EnemyState -> EnemyState
+    trackTowardsPlayer (px, py) enemy =
+        let (ex, ey) = position enemy
+            dir = normalize (px - ex, py - ey)
+            spd = speed enemy
+            newVel = (fst dir * spd, snd dir * spd)
+        in enemy { velocity = newVel }
+
+-- Actualizar movimiento de TODOS los enemigos
+updateEnemyMovementAll :: Float -> State GameState ()
+updateEnemyMovementAll dt = do
+    gs <- get
+    let currentEnemies = enemies gs
+        updatedEnemies = M.map (moveEnemy dt) currentEnemies
+    put gs { enemies = updatedEnemies }
+  where
+    moveEnemy :: Float -> EnemyState -> EnemyState
+    moveEnemy dt enemy =
+        let (x, y) = position enemy
+            (vx, vy) = velocity enemy
+        in enemy { position = (x + vx * dt, y + vy * dt) }
+
+-- Resolver colisiones entre enemigos (VERSIÓN LIMPIA CON DEBUG)
+resolveAllEnemyCollisions :: State GameState ()
+resolveAllEnemyCollisions = do
+
+    -- Debug: verificar que se ejecuta
+    let _ = unsafePerformIO $ putStrLn ">>> resolveAllEnemyCollisions CALLED <<<"
+    
+    gs <- get
+    let currentEnemies = enemies gs
+        enemyList = M.elems currentEnemies
+        
+        -- Debug: mostrar posiciones
+        _ = unsafePerformIO $ do
+            putStrLn "=== CHECKING COLLISIONS ==="
+            mapM_ (\e -> putStrLn $ "Enemy " ++ show (enemy_id e) ++ 
+                                    " at " ++ show (position e) ++ 
+                                    " radius " ++ show (radius e)) enemyList
+            return ()
+        
+        collidingPairs = [(e1, e2) | e1 <- enemyList, 
+                                     e2 <- enemyList,
+                                     enemy_id e1 < enemy_id e2,
+                                     enemiesCollide e1 e2]
+        
+        -- Debug: mostrar colisiones detectadas
+        _ = unsafePerformIO $ do
+            if null collidingPairs
+                then putStrLn "No collisions detected"
+                else do
+                    putStrLn $ "Found " ++ show (length collidingPairs) ++ " collisions:"
+                    mapM_ (\(e1, e2) -> putStrLn $ "  Enemy " ++ show (enemy_id e1) ++ 
+                                                   " <-> Enemy " ++ show (enemy_id e2)) collidingPairs
+            return ()
+        
+        finalEnemies = iterateCollisionResolution 3 currentEnemies
+    put gs { enemies = finalEnemies }
+  where
+    -- Iterar para resolver colisiones
+    iterateCollisionResolution :: Int -> Enemies -> Enemies
+    iterateCollisionResolution 0 enems = enems
+    iterateCollisionResolution n enems =
+        let enemyList = M.elems enems
+            collidingPairs = [(e1, e2) | e1 <- enemyList, 
+                                         e2 <- enemyList,
+                                         enemy_id e1 < enemy_id e2,
+                                         enemiesCollide e1 e2]
+            resolvedEnemies = foldl separatePair enems collidingPairs
+        in if null collidingPairs
+           then resolvedEnemies
+           else iterateCollisionResolution (n - 1) resolvedEnemies
+    
+    -- Separar un par de enemigos (SOLO UNA DEFINICIÓN)
+    separatePair :: Enemies -> (EnemyState, EnemyState) -> Enemies
+    separatePair m (e1, e2) =
+        let (e1', e2') = separateEnemies e1 e2
+            -- Debug: mostrar separación
+            _ = unsafePerformIO $ do
+                putStrLn $ "Separating " ++ show (enemy_id e1) ++ " and " ++ show (enemy_id e2)
+                putStrLn $ "  Before: " ++ show (position e1) ++ " -> " ++ show (position e2)
+                putStrLn $ "  After:  " ++ show (position e1') ++ " -> " ++ show (position e2')
+                return ()
+        in M.insert (enemy_id e2') e2' $ M.insert (enemy_id e1') e1' m
+
+-- Empujar enemigos lejos del jugador
+pushEnemiesFromPlayer :: State GameState ()
+pushEnemiesFromPlayer = do
+    gs <- get
+    let pPos = playerPos (player gs)
+        pRadius = playerRadius
+        currentEnemies = enemies gs
+        updatedEnemies = M.map (pushAway pPos pRadius) currentEnemies
+    put gs { enemies = updatedEnemies }
+  where
+    pushAway :: Position -> Float -> EnemyState -> EnemyState
+    pushAway playerPos playerRadius enemy =
+        if enemyCollidesWithPlayer playerPos playerRadius enemy
+        then
+            let (ex, ey) = position enemy
+                (px, py) = playerPos
+                (dx, dy) = (ex - px, ey - py)
+                dist = sqrt (dx*dx + dy*dy)
+                
+                (nx, ny) = if dist < 0.0001
+                            then (1, 0)
+                            else (dx / dist, dy / dist)
+                    
+                minDist = radius enemy + playerRadius
+                overlap = minDist - dist
+                pushDistance = overlap + 0.5
+                newPos = (ex + nx * pushDistance, ey + ny * pushDistance)
+                
+            in enemy { position = newPos }
+        else enemy
+
 -------------------------------------------
 -- OPERACIONES PARA EL STATE DE UN ENEMY
 -------------------------------------------
@@ -19,12 +146,13 @@ import Types
 damageReceived :: EnemyID -> Int -> State Enemies ()
 damageReceived eID dmg = modify $ \m ->
     case M.lookup eID m of
-        Nothing -> m  -- si no existe, no hacemos nada
+        Nothing -> m
         Just enemy ->
             let newHealth = health enemy - dmg
             in if newHealth <= 0
-                then M.delete eID m  -- enemigo muere
+                then M.delete eID m
                 else M.insert eID (enemy { health = newHealth }) m
+
 -------------------------------------------
 -- TRACKEO
 -------------------------------------------
@@ -33,7 +161,7 @@ damageReceived eID dmg = modify $ \m ->
 trackPlayer :: Position -> EnemyID -> State Enemies ()
 trackPlayer playerPos eID = modify $ \m ->
     case M.lookup eID m of
-        Nothing     -> m  -- enemigo no existe (muerto)
+        Nothing     -> m
         Just enemy  ->
             let (ex, ey) = position enemy
                 (px, py) = playerPos
@@ -85,17 +213,18 @@ updateAllEnemyMovement dt = modify $ M.map updatePos
 -------------------------------------------
 -- speed BASE para enemigos
 enemyBaseSpeed :: Float
-enemyBaseSpeed = 300
+enemyBaseSpeed = 150
 
 -- radio por defecto según tipo de enemigo
 defaultRadius :: EnemyType -> Float
-defaultRadius Aerial = 15.0
+defaultRadius Aerial = 20.0
 defaultRadius Ground = 20.0
 
 -- Vida por defecto según tipo
 defaultHealth :: EnemyType -> Int
 defaultHealth Aerial = 50
 defaultHealth Ground = 100
+
 -------------------------------------------
 -- FUNCIONES AUXILIARES
 -------------------------------------------
@@ -104,7 +233,7 @@ normalize :: (Float, Float) -> (Float, Float)
 normalize (0, 0) = (0, 0)
 normalize (x, y) =
     let mag = sqrt (x*x + y*y)
-    in if mag < 0.0001  -- epsilon para evitar divisiones problemáticas
+    in if mag < 0.0001
         then (0, 0)
         else (x / mag, y / mag)
 
@@ -114,6 +243,7 @@ distance (x1, y1) (x2, y2) =
     let dx = x2 - x1
         dy = y2 - y1
     in sqrt (dx*dx + dy*dy)
+
 -------------------------------------------
 -- FUNCIÓN PARA CREAR ENEMIGOS
 -------------------------------------------
@@ -141,14 +271,13 @@ addEnemy enemy = modify $ M.insert (enemy_id enemy) enemy
 -- Método para generar enemigos dentro del game loop
 spawnEnemyAt :: Position -> EnemyType -> State Enemies ()
 spawnEnemyAt spawnPos etype = do
-    -- Generar un ID único para el enemigo (puedes usar un contador o cualquier otro método)
     enemies <- get
     let newID = case M.keys enemies of
-                [] -> 1  -- Si no hay enemigos, el primer ID es 1
-                ids -> maximum ids + 1  -- Si ya hay enemigos, se incrementa el ID más alto
-    let newEnemy = createEnemyDefault newID spawnPos etype  -- Crear el enemigo con la posición de spawn y el tipo
-    -- Agregar el nuevo enemigo al mapa
+                [] -> 1
+                ids -> maximum ids + 1
+    let newEnemy = createEnemyDefault newID spawnPos etype
     addEnemy newEnemy
+
 -------------------------------------------
 -- HITBOXES (hitbox circular)
 -------------------------------------------
@@ -170,7 +299,7 @@ enemiesCollide e1 e2 =
 -------------------------------------------
 -- RESOLVER COLISIONES
 -------------------------------------------
--- Separa dos enemigos que están colisionando
+-- separa dos enemigos que están colisionando
 separateEnemies :: EnemyState -> EnemyState -> (EnemyState, EnemyState)
 separateEnemies e1 e2 =
     let pos1 = position e1
@@ -178,25 +307,23 @@ separateEnemies e1 e2 =
         r1 = radius e1
         r2 = radius e2
         
-        -- Dirección de e1 hacia e2
         (dx, dy) = (fst pos2 - fst pos1, snd pos2 - snd pos1)
         dist = sqrt (dx*dx + dy*dy)
         
-        -- Si están exactamente en la misma posición, empuja uno arbitrariamente
+        -- Dirección normalizada
         (nx, ny) = if dist < 0.0001
-                    then (1, 0)
+                    then (1, 0)  -- Dirección arbitraria si están exactamente encima
                     else (dx / dist, dy / dist)
         
-        -- Distancia de overlap
-        overlap = r1 + r2 - dist
+        -- Calcular overlap
+        minDist = r1 + r2
+        overlap = minDist - dist
         
-        -- Cada enemigo se mueve la mitad del overlap
-        pushDistance = overlap / 2 + 0.1  -- +0.1 para asegurar separación
+        -- Empujar más fuerte: cada uno se mueve la mitad + un buffer
+        pushDistance = (overlap / 2) + 2.0  -- Aumentamos el buffer de 0.1 a 2.0
         
-        -- Nueva posición de e1 (empujado hacia atrás)
+        -- Nuevas posiciones
         newPos1 = (fst pos1 - nx * pushDistance, snd pos1 - ny * pushDistance)
-        
-        -- Nueva posición de e2 (empujado hacia adelante)
         newPos2 = (fst pos2 + nx * pushDistance, snd pos2 + ny * pushDistance)
         
     in (e1 { position = newPos1 }, e2 { position = newPos2 })
@@ -206,13 +333,11 @@ resolveEnemyCollisions :: State Enemies ()
 resolveEnemyCollisions = do
     enemies <- get
     let enemyList = M.elems enemies
-        -- Encuentra todos los pares que colisionan
         collidingPairs = [(e1, e2) | e1 <- enemyList, 
                                     e2 <- enemyList,
-                                    enemy_id e1 < enemy_id e2, -- evita duplicados
+                                    enemy_id e1 < enemy_id e2,
                                     enemiesCollide e1 e2]
     
-    -- Separa cada par que colisiona
     let separated = foldl separatePair enemies collidingPairs
     put separated
     where
@@ -231,22 +356,17 @@ pushEnemiesAwayFromPlayer playerPos playerRadius = modify $ M.map pushAway
             then
                 let (ex, ey) = position enemy
                     (px, py) = playerPos
-                    -- Dirección del jugador al enemigo
                     (dx, dy) = (ex - px, ey - py)
                     dist = sqrt (dx*dx + dy*dy)
                     
                     (nx, ny) = if dist < 0.0001
-                                then (1, 0)  -- dirección arbitraria si están encima
+                                then (1, 0)
                                 else (dx / dist, dy / dist)
                         
-                    -- Distancia que deben estar separados
                     minDist = radius enemy + playerRadius
                     overlap = minDist - dist
-                    
-                    -- Nueva posición del enemigo (empujado lejos del jugador)
-                    pushDistance = overlap + 0.5  -- +0.5 para buffer
+                    pushDistance = overlap + 0.5
                     newPos = (ex + nx * pushDistance, ey + ny * pushDistance)
                     
                 in enemy { position = newPos }
             else enemy
-

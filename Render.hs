@@ -256,6 +256,7 @@ renderPlayingScreen gs =
         [ renderLayers layersBelow,      -- Capas 0,1,2 (debajo del jugador)
           renderPlayer gs,
           renderSwordSlash gs,
+          renderEnemies gs,
           renderProjectiles gs,
           renderWorldItems gs,
           renderBoomerang gs,
@@ -562,7 +563,6 @@ renderItemFlash gs =
               color fadeColor $
                 text (itemName iType)
 
-
 -- Renderizar el slash de espada
 renderSwordSlash :: GameState -> Picture
 renderSwordSlash gs =
@@ -586,3 +586,28 @@ renderSwordSlash gs =
           rotate (-angle) $
           scale 0.3 0.3 $
           framePic
+
+-- Renderizar enemigos
+renderEnemies :: GameState -> Picture
+renderEnemies gs =
+    let cam = cameraPos (camera gs)
+        camX = fst cam
+        camY = snd cam
+        enemyList = Map.elems (enemies gs)
+        
+        renderEnemy enemy =
+            let (ex, ey) = position enemy
+                screenX = ex - camX
+                screenY = ey - camY
+                enemyColor = case enemy_type enemy of
+                    Aerial -> makeColor 0.8 0.2 0.2 1.0  -- Rojo para aéreos
+                    Ground -> makeColor 0.2 0.8 0.2 1.0  -- Verde para terrestres
+                enemyRadius = radius enemy
+            in translate screenX screenY $
+                pictures [
+                    -- Círculo del enemigo
+                    color enemyColor $ circleSolid enemyRadius,
+                    -- Borde blanco
+                    color white $ circle enemyRadius
+                ]
+    in pictures (map renderEnemy enemyList)

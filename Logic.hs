@@ -11,6 +11,7 @@ import Data.Bits ((.&.))
 import Pociones
 import System.IO.Unsafe (unsafePerformIO)
 import System.Exit (exitSuccess)
+import qualified Enemys
 
 -- Estado inicial
 initialGameState :: [[Int]] -> [[[Int]]] -> [[Bool]] -> GameState
@@ -74,7 +75,10 @@ initialGameState tiles layers collisions = GameState {
     collisionMap = collisions,
     collisionShapes = Map.empty,
     randomSeed = 42,
-    enemies = Map.empty
+    enemies = Map.fromList [
+        (1, Enemys.createEnemyDefault 1 (spawnAtTileCenter 45 35) Ground),
+        (2, Enemys.createEnemyDefault 2 (spawnAtTileCenter 40 30) Ground)
+    ]
 }
 
 
@@ -291,6 +295,13 @@ updateGame dt = do
             updateWorldItems dt
             handleItemPickup
             updateItemFlash dt          -- Nombre del item cuando lo recoges / seleccionas
+
+            Enemys.updateEnemyTracking dt
+            Enemys.updateEnemyMovementAll dt
+            checkEnemyPlayerCollisions
+            Enemys.pushEnemiesFromPlayer
+            Enemys.resolveAllEnemyCollisions
+
             resetMouseClick
         _ -> return ()
 
@@ -1322,3 +1333,19 @@ resetInputState inp = inp
     , key5 = False
     , mouseClick = False
     }
+
+checkEnemyPlayerCollisions :: State GameState ()
+checkEnemyPlayerCollisions = do
+    gs <- get
+    let p = player gs
+        pPos = playerPos p
+        pRadius = playerRadius
+        enemyList = Map.elems (enemies gs)
+        
+        -- Encontrar enemigos que están tocando al jugador
+        collidingEnemies = filter (Enemys.enemyCollidesWithPlayer pPos pRadius) enemyList
+    
+    -- si hay al menos un enemigo tocando Y el jugador no es invulnerable
+    when (not (null collidingEnemies) && not (playerIsInvulnerable p) && not (playerIsTakingDamage p)) $ do
+        let firstEnemy = head collidingEnemies
+        takeDamage dmgFromEnemy (position firstEnemy)

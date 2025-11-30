@@ -260,7 +260,10 @@ damageAnimationDuration :: Float
 damageAnimationDuration = 0.5
 
 damageKnockbackDistance :: Float
-damageKnockbackDistance = 80.0
+damageKnockbackDistance = 600.0
+
+playerRadius:: Float
+playerRadius = 15.0
 
 ------------------- CONFIGURACIÓN DE OBJETOS DESTRUCTIBLES -------------------
 -- GIDs de los objetos destructibles (ids de colisión)
@@ -330,3 +333,7 @@ itemName Curacion = "Pocion de curacion"
 itemName Velocidad = "Pocion de velocidad"
 itemName Stamina = "Pocion de stamina"
 itemName Fuerza = "Pocion de fuerza"
+
+-- daño del enemigo
+dmgFromEnemy:: Int
+dmgFromEnemy = 10
