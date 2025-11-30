@@ -58,7 +58,7 @@ initialGameState tiles layers collisions = GameState {
         keyD = False,
         keyShift = False,
         keyE = False,
-        keyQ = False,
+        keyF = False,
         key1 = False,
         key2 = False,
         key3 = False,
@@ -194,8 +194,8 @@ handlePlayingInput event = do
                 EventKey (Char 'd') Up _ _ -> put gs { inputState = inp { keyD = False } }
                 EventKey (Char 'e') Down _ _ -> put gs { inputState = inp { keyE = True } }
                 EventKey (Char 'e') Up _ _ -> put gs { inputState = inp { keyE = False } }
-                EventKey (Char 'q') Down _ _ -> put gs { inputState = inp { keyQ = True } }
-                EventKey (Char 'q') Up _ _ -> put gs { inputState = inp { keyQ = False } }
+                EventKey (Char 'f') Down _ _ -> put gs { inputState = inp { keyF = True } }
+                EventKey (Char 'f') Up _ _ -> put gs { inputState = inp { keyF = False } }
                 EventKey (Char 'W') Down _ _ -> put gs { inputState = inp { keyW = True } }
                 EventKey (Char 'W') Up _ _ -> put gs { inputState = inp { keyW = False } }
                 EventKey (Char 'S') Down _ _ -> put gs { inputState = inp { keyS = True } }
@@ -206,8 +206,8 @@ handlePlayingInput event = do
                 EventKey (Char 'D') Up _ _ -> put gs { inputState = inp { keyD = False } }
                 EventKey (Char 'E') Down _ _ -> put gs { inputState = inp { keyE = True } }
                 EventKey (Char 'E') Up _ _ -> put gs { inputState = inp { keyE = False } }
-                EventKey (Char 'Q') Down _ _ -> put gs { inputState = inp { keyQ = True } }
-                EventKey (Char 'Q') Up _ _ -> put gs { inputState = inp { keyQ = False } }
+                EventKey (Char 'F') Down _ _ -> put gs { inputState = inp { keyF = True } }
+                EventKey (Char 'F') Up _ _ -> put gs { inputState = inp { keyF = False } }
                 EventKey (Char '1') Down _ _ -> put gs { inputState = inp { key1 = True } }
                 EventKey (Char '1') Up _ _ -> put gs { inputState = inp { key1 = False } }
                 EventKey (Char '2') Down _ _ -> put gs { inputState = inp { key2 = True } }
@@ -870,13 +870,13 @@ handleItemDrop = do
     let inp = inputState gs
         p = player gs
         
-    when (keyQ inp) $ do
+    when (keyF inp) $ do
         let currentSlot = playerSelectedSlot p
             inventory = playerInventory p
             currentItem = inventory !! currentSlot
             
         case currentItem of
-            Nothing -> put gs { inputState = inp { keyQ = False } }
+            Nothing -> put gs { inputState = inp { keyF = False } }
             Just iType -> do
                 let (px, py) = playerPos p
                     droppedItem = WorldItem {
@@ -904,7 +904,7 @@ handleItemDrop = do
                 put gs { 
                     player = newPlayer, 
                     worldItems = newItems,
-                    inputState = inp { keyQ = False }
+                    inputState = inp { keyF = False }
                 }
   where
     updateInventoryAt :: Int -> Maybe ItemType -> [Maybe ItemType] -> [Maybe ItemType]
@@ -1216,7 +1216,7 @@ resetInputState inp = inp
     , keyD = False
     , keyShift = False
     , keyE = False
-    , keyQ = False
+    , keyF = False
     , key1 = False
     , key2 = False
     , key3 = False
