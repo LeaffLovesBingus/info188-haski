@@ -255,13 +255,13 @@ handlePlayingInput :: Event -> State GameState ()
 handlePlayingInput event = do
     gs <- get
     let inp = inputState gs
-        p = player gs
-        canMove = not (playerIsTakingDamage p)
+        -- COMENTADA LÍNEA BUGFIX
+        -- canMove = not (playerIsTakingDamage p)
     case event of
         EventMotion pos -> put gs { inputState = inp { mousePos = pos } }
         
-        -- Si no puede moverse, ignorar input de teclas
-        _ | not canMove -> return ()
+        -- COMENTADA LÍNEA BUGFIX
+        -- _ | not canMove -> return () 
 
         -- Input normal cuando puede moverse
         EventKey (Char 'w') Down _ _ -> put gs { inputState = inp { keyW = True } }
