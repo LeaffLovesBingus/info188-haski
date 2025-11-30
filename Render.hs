@@ -256,13 +256,13 @@ renderPlayingScreen gs =
    in pictures
         [ renderLayers layersBelow,      -- Capas 0,1,2 (debajo del jugador)
           renderPlayer gs,
+          renderEnemies gs,
+          renderEnemyHealthBars gs,
           renderSwordSlash gs,
           renderProjectiles gs,
           renderWorldItems gs,
           renderBoomerang gs,
           renderLayers layersAbove,      -- Capas 3,4 (Plantas, Props) - encima del jugador
-          renderEnemies gs,              -- Enemigos encima de todas las capas
-          renderEnemyHealthBars gs,
           renderItemFlash gs,
           renderCursor gs,
           renderCooldownBar gs,

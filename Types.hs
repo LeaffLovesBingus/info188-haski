@@ -227,7 +227,7 @@ boomerangSpeed :: Float         -- Velocidad de tiro del boomerang
 boomerangSpeed = 800.0          
 
 boomerangMaxDistance :: Float   -- Distancia máxima de tiro del boomerang
-boomerangMaxDistance = 300      -- Pixeles
+boomerangMaxDistance = 200      -- Pixeles
 
 boomerangSpinSpeed :: Float     -- Velocidad de giro del boomerang
 boomerangSpinSpeed = 1080        -- grados por segundo
@@ -376,7 +376,7 @@ enemyAnimationSpeed = 0.3  -- Cambia de frame cada 0.3 segundos
 
 -- Constantes de respawn de enemigos
 maxEnemies :: Int
-maxEnemies = 5  -- Máximo de enemigos en el mapa
+maxEnemies = 25  -- Máximo de enemigos en el mapa
 
 enemyRespawnDelay :: Float
 enemyRespawnDelay = 3.0  -- Segundos antes de respawnear un enemigo
