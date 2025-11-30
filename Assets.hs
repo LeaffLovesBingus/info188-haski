@@ -40,6 +40,9 @@ playerFrames = unsafePerformIO $ do
       rowWalkDown = 3
       rowWalkRight = 4
       rowWalkUp = 5
+      rowDamageDown = 6
+      rowDamageRight = 7
+      rowDamageUp = 8
 
       extract col row =
         fromMaybe Blank (fromImageRGBA8 <$> extractFrame col row w h)
@@ -52,23 +55,35 @@ playerFrames = unsafePerformIO $ do
       walkFramesRight = [extract i rowWalkRight | i <- [0 .. 3]]
       walkFramesUp = [extract i rowWalkUp | i <- [0 .. 3]]
 
+      damageFramesDown = [extract i rowDamageDown | i <- [0 .. 3]]
+      damageFramesRight = [extract i rowDamageRight | i <- [0 .. 3]]
+      damageFramesUp = [extract i rowDamageUp | i <- [0 .. 3]]
+
       -- izquierda = invertir derecha
       flipPic p = scale (-1) 1 p
 
       idleFramesLeft = map flipPic idleFramesRight
       walkFramesLeft = map flipPic walkFramesRight
+      damageFramesLeft = map flipPic damageFramesRight
 
       list =
+        -- Idle
         [((DirDown, Idle, i), idleFramesDown !! i) | i <- [0 .. 1]]
           ++ [((DirRight, Idle, i), idleFramesRight !! i) | i <- [0 .. 1]]
           ++ [((DirUp, Idle, i), idleFramesUp !! i) | i <- [0 .. 1]]
           ++ [((DirLeft, Idle, i), idleFramesLeft !! i) | i <- [0 .. 1]]
+          -- Walk
           ++ [((DirDown, Walk, i), walkFramesDown !! i) | i <- [0 .. 3]]
           ++ [((DirRight, Walk, i), walkFramesRight !! i) | i <- [0 .. 3]]
           ++ [((DirUp, Walk, i), walkFramesUp !! i) | i <- [0 .. 3]]
           ++ [((DirLeft, Walk, i), walkFramesLeft !! i) | i <- [0 .. 3]]
+          -- Damage
+          ++ [((DirDown, Damage, i), damageFramesDown !! i) | i <- [0 .. 3]]
+          ++ [((DirRight, Damage, i), damageFramesRight !! i) | i <- [0 .. 3]]
+          ++ [((DirUp, Damage, i), damageFramesUp !! i) | i <- [0 .. 3]]
+          ++ [((DirLeft, Damage, i), damageFramesLeft !! i) | i <- [0 .. 3]]
 
-  return (Array.array ((DirDown, Idle, 0), (DirLeft, Walk, 3)) list)
+  return (Array.array ((DirDown, Idle, 0), (DirLeft, Damage, 3)) list)
 {-# NOINLINE playerFrames #-}
 
 -- Carga los sprites de los items
