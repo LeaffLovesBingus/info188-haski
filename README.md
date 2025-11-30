@@ -82,7 +82,6 @@ El proyecto utiliza un `Makefile` para facilitar la gestión de dependencias y c
 | **E** | Recoger objeto cercano |
 | **Q** | Soltar objeto equipado |
 | **1 - 5** | Seleccionar *slot* del inventario |
-| **ESC** | Pausa / Volver al Menú |
 
 -----
 
