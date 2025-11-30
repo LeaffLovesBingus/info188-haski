@@ -126,11 +126,12 @@ data InputState = InputState {
 -- Estado del juego
 data GameState = GameState {
     currentScene :: GameScene,
+    gameTimer :: Float,                       -- Temporizador del juego (segundos restantes)
     player :: Player,
     camera :: Camera,
     projectiles :: [Projectile],
-    boomerang :: Maybe BoomerangProjectile,   -- Solo habrá un boomerang a la vez
-    swordSlash :: Maybe SwordSlash,           -- Solo habrá un espadazo a la vez
+    boomerang :: Maybe BoomerangProjectile,   -- Solo habra un boomerang a la vez
+    swordSlash :: Maybe SwordSlash,           -- Solo habra un espadazo a la vez
     worldItems :: [WorldItem],
     destructibleObjects :: [DestructibleObject],
     inputState :: InputState,
@@ -141,6 +142,10 @@ data GameState = GameState {
     randomSeed :: Int,
     enemies:: Enemies
 } deriving (Show)
+
+-- Tiempo para ganar (3 minutos = 180 segundos)
+gameWinTime :: Float
+gameWinTime = 180.0
 
 -- id del enemigo
 type EnemyID = Int

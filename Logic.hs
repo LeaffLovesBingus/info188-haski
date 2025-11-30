@@ -1,7 +1,6 @@
 module Logic where
 
 import Types
-import Render (renderDefeatScreen, renderVictoryScreen)
 import Graphics.Gloss.Interface.Pure.Game
 import Control.Monad.State
 import Control.Monad (when)
@@ -9,14 +8,15 @@ import qualified Data.Map.Strict as Map
 import MapLoader (CollisionShape(..))
 import Data.Bits ((.&.))
 import Pociones
+import qualified Enemys
 import System.IO.Unsafe (unsafePerformIO)
 import System.Exit (exitSuccess)
-import qualified Enemys
 
 -- Estado inicial
 initialGameState :: [[Int]] -> [[[Int]]] -> [[Bool]] -> GameState
 initialGameState tiles layers collisions = GameState {
     currentScene = MenuScreen,
+    gameTimer = gameWinTime,  -- Empieza en 180 segundos (3 minutos)
     player = Player { 
         playerPos = spawnAtTileCenter 39 32, 
         playerVel = (0, 0),
@@ -139,18 +139,18 @@ handleInputEvent event = do
         Victory    -> handleEndScreenInput event
         Defeat     -> handleEndScreenInput event
 
--- Manejar input en el menú
+-- Manejar input en el menu
 handleMenuInput :: Event -> State GameState ()
 handleMenuInput event = do
     gs <- get
     case event of
         EventKey (MouseButton LeftButton) Down _ (mx, my) -> do
-            -- Verificar si se hizo clic en el botón Jugar
+            -- Verificar si se hizo clic en el boton Jugar
             if isInsideButton mx my playButtonY
-                then put gs { currentScene = Playing }
-            -- Verificar si se hizo clic en el botón Salir
+                then put $ resetGameForNewPlay gs
+            -- Verificar si se hizo clic en el boton Salir
             else if isInsideButton mx my exitButtonY
-                then unsafePerformIO exitSuccess `seq` return ()
+                then gs `seq` unsafePerformIO exitSuccess `seq` return ()
             else return ()
         _ -> return ()
 
@@ -160,12 +160,46 @@ handleEndScreenInput event = do
     gs <- get
     case event of
         EventKey (MouseButton LeftButton) Down _ (mx, my) -> do
-            -- Verificar si se hizo clic en el botón Menu (posición Y = -280)
+            -- Verificar si se hizo clic en el boton Menu (posicion Y = -280)
             if isInsideButton mx my menuButtonY
                 then put gs { currentScene = MenuScreen }
                 else return ()
-        EventKey (SpecialKey KeyEsc) Down _ _ -> put gs { currentScene = MenuScreen }
+        -- ESC deshabilitado (causa segfault)
+        -- EventKey (SpecialKey KeyEsc) Down _ _ -> put gs { currentScene = MenuScreen }
         _ -> return ()
+
+-- Reiniciar el estado del juego para una nueva partida
+resetGameForNewPlay :: GameState -> GameState
+resetGameForNewPlay gs = gs {
+    currentScene = Playing,
+    gameTimer = gameWinTime,
+    player = (player gs) {
+        playerPos = spawnAtTileCenter 39 32,
+        playerVel = (0, 0),
+        playerHealth = playerBaseHealth,
+        playerSpeed = playerBaseSpeed,
+        playerDir = DirUp,
+        playerFrame = 0,
+        playerAnimTime = 0,
+        playerEquippedItem = Nothing,
+        playerCooldownBallesta = 0.0,
+        playerHasBoomerang = True,
+        playerInventory = replicate inventorySize Nothing,
+        playerSelectedSlot = 0,
+        playerItemFlashTimer = 0.0,
+        playerItemFlashState = NoFlash,
+        playerSpeedBoostTimer = 0.0,
+        playerIsTakingDamage = False,
+        playerDamageAnimTimer = 0.0,
+        playerDamageDirection = DamageFromFront,
+        playerDamageKnockbackVel = (0, 0),
+        playerIsInvulnerable = False
+    },
+    camera = Camera { cameraPos = spawnAtTileCenter 39 32, cameraTarget = spawnAtTileCenter 39 32 },
+    projectiles = [],
+    boomerang = Nothing,
+    swordSlash = Nothing
+}
 
 -- Verificar si un clic está dentro de un botón
 isInsideButton :: Float -> Float -> Float -> Bool
@@ -193,7 +227,11 @@ handlePlayingInput event = do
         canMove = not (playerIsTakingDamage p)
     case event of
         EventMotion pos -> put gs { inputState = inp { mousePos = pos } }
-        EventKey (SpecialKey KeyEsc) Down _ _ -> put gs { currentScene = MenuScreen }
+        
+        -- Si no puede moverse, ignorar input de teclas
+        _ | not canMove -> return ()
+
+        -- Input normal cuando puede moverse
         EventKey (Char 'w') Down _ _ -> put gs { inputState = inp { keyW = True } }
         EventKey (Char 'w') Up _ _ -> put gs { inputState = inp { keyW = False } }
         EventKey (Char 's') Down _ _ -> put gs { inputState = inp { keyS = True } }
@@ -242,8 +280,9 @@ handlePlayingInput event = do
         EventKey (MouseButton LeftButton) Up _ _ -> put gs { inputState = inp { mouseClick = False } }
         EventKey (SpecialKey KeyShiftL) Down _ _ -> put gs { inputState = inp { keyShift = True } }
         EventKey (SpecialKey KeyShiftL) Up _ _ -> put gs { inputState = inp { keyShift = False } }
-
-        -- DEBUG
+        
+        -- DEBUG: Teclas de flechas para probar dano desde distintas direcciones
+        -- Descomentar para usar:
         -- EventKey (SpecialKey KeyUp) Down _ _ -> do
         --     let (px, py) = playerPos p
         --         testEnemyPos = (px, py + 60)
@@ -263,7 +302,8 @@ handlePlayingInput event = do
         --     let (px, py) = playerPos p
         --         testEnemyPos = (px + 60, py)
         --     takeDamage 10 testEnemyPos
-
+        
+        -- Cualquier otra tecla: ignorar
         _ -> return ()
 
 
@@ -273,32 +313,64 @@ updateGame dt = do
     gs <- get
     case currentScene gs of
         Playing -> do
-            updateDamageAnimation dt
-            updateInvulnerability dt
-            handleSlotSelection         -- Selección de slots con teclado
-            handleItemDrop              -- Soltar items con Q
-            handlePotionUse
-            updateSpeedTimer dt
-            updatePlayerMovement dt
-            updateCamera dt
-            updatePlayerCooldowns dt
-            updateBoomerang dt
-            updateProjectiles dt
-            updateSwordSlash dt
-            checkProjectileCollisions dt
-            updateWorldItems dt
-            handleItemPickup
-            updateItemFlash dt          -- Nombre del item cuando lo recoges / seleccionas
+            -- Actualizar temporizador
+            updateGameTimer dt
+            
+            -- Verificar condiciones de victoria/derrota
+            checkVictoryDefeat
+            
+            -- Solo continuar si seguimos jugando
+            gs' <- get
+            when (currentScene gs' == Playing) $ do
+                updateDamageAnimation dt
+                updateInvulnerability dt
+                handleSlotSelection         -- Seleccion de slots con teclado
+                handleItemDrop              -- Soltar items con Q
+                handlePotionUse
+                updateSpeedTimer dt
+                updatePlayerMovement dt
+                updateCamera dt
+                updatePlayerCooldowns dt
+                updateBoomerang dt
+                updateProjectiles dt
+                updateSwordSlash dt
+                checkProjectileCollisions dt
+                updateWorldItems dt
+                handleItemPickup
+                updateItemFlash dt          -- Nombre del item cuando lo recoges / seleccionas
 
-            Enemys.updateEnemyTracking dt
-            Enemys.updateEnemyMovementAll dt
-            Enemys.updateEnemyAnimations dt
-            checkEnemyPlayerCollisions
-            Enemys.pushEnemiesFromPlayer
-            Enemys.resolveAllEnemyCollisions
+                Enemys.updateEnemyTracking dt
+                Enemys.updateEnemyMovementAll dt
+                Enemys.updateEnemyAnimations dt
+                checkEnemyPlayerCollisions
+                Enemys.pushEnemiesFromPlayer
+                Enemys.resolveAllEnemyCollisions
 
-            resetMouseClick
+                resetMouseClick
         _ -> return ()
+
+-- Actualizar el temporizador del juego
+updateGameTimer :: Float -> State GameState ()
+updateGameTimer dt = do
+    gs <- get
+    let newTimer = max 0.0 (gameTimer gs - dt)
+    put gs { gameTimer = newTimer }
+
+-- Verificar condiciones de victoria y derrota
+checkVictoryDefeat :: State GameState ()
+checkVictoryDefeat = do
+    gs <- get
+    let p = player gs
+        currentHealth = playerHealth p
+        timer = gameTimer gs
+    
+    -- Derrota: vida <= 0
+    when (currentHealth <= 0) $ do
+        put gs { currentScene = Defeat }
+    
+    -- Victoria: temporizador llega a 0
+    when (timer <= 0 && currentHealth > 0) $ do
+        put gs { currentScene = Victory }
 
 updateSpeedTimer :: Float -> State GameState ()
 updateSpeedTimer dt = do
