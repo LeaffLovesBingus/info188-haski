@@ -17,11 +17,14 @@ data GameScene = MenuScreen | Playing | Victory | Defeat
 data Direction = DirDown | DirRight | DirUp | DirLeft 
     deriving (Eq, Ord, Show, Ix, Bounded)
 
-data AnimType = Idle | Walk 
+data AnimType = Idle | Walk | Damage 
     deriving (Eq, Ord, Show, Ix, Bounded)
 
 data ItemType = Ballesta | Boomerang | Espada | Curacion | Velocidad | Stamina | Fuerza
     deriving (Eq, Ord, Show, Ix, Bounded)
+
+data DamageDirection = DamageFromFront | DamageFromBack | DamageFromLeft | DamageFromRight
+    deriving (Eq, Show)
 
 -- NUEVO: Objeto destructible
 data DestructibleObject = DestructibleObject {
@@ -74,7 +77,12 @@ data Player = Player {
     playerSelectedSlot :: Int,
     playerItemFlashTimer :: Float,
     playerItemFlashState :: FlashState,
-    playerSpeedBoostTimer :: Float
+    playerSpeedBoostTimer :: Float,
+    playerIsTakingDamage :: Bool,
+    playerDamageAnimTimer :: Float,
+    playerDamageDirection :: DamageDirection,
+    playerDamageKnockbackVel :: Velocity,
+    playerIsInvulnerable :: Bool
 } deriving (Show)
 
 -- Item en el mundo
@@ -231,8 +239,13 @@ playerCollisionHalfSize = 14.0
 playerCollisionOffsetY :: Float
 playerCollisionOffsetY = -20.0
 
+damageAnimationDuration :: Float
+damageAnimationDuration = 0.5
 
--- CONFIGURACIÓN DE OBJETOS DESTRUCTIBLES
+damageKnockbackDistance :: Float
+damageKnockbackDistance = 80.0
+
+------------------- CONFIGURACIÓN DE OBJETOS DESTRUCTIBLES -------------------
 -- GIDs de los objetos destructibles (ids de colisión)
 destructibleGids :: [Int]
 destructibleGids = [1665 + 85, 1665 + 21, 1665 + 149]  -- [1750, 1686, 1814]
