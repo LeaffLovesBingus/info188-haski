@@ -599,15 +599,19 @@ renderEnemies gs =
             let (ex, ey) = position enemy
                 screenX = ex - camX
                 screenY = ey - camY
-                enemyColor = case enemy_type enemy of
-                    Aerial -> makeColor 0.8 0.2 0.2 1.0  -- Rojo para aéreos
-                    Ground -> makeColor 0.2 0.8 0.2 1.0  -- Verde para terrestres
-                enemyRadius = radius enemy
+                
+                -- Obtener frame actual de la animación
+                frame = enemyFrame enemy
+                safeFrame = frame `mod` 2  -- Asegurar que esté entre 0 y 1
+                
+                -- Obtener sprite del frame
+                enemyPic = enemyFrames Array.! safeFrame
+                
+                -- Escala del sprite
+                spriteScale = 2.0
+                
             in translate screenX screenY $
-                pictures [
-                    -- Círculo del enemigo
-                    color enemyColor $ circleSolid enemyRadius,
-                    -- Borde blanco
-                    color white $ circle enemyRadius
-                ]
+                scale spriteScale spriteScale $
+                    enemyPic
+                    
     in pictures (map renderEnemy enemyList)

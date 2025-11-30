@@ -293,3 +293,41 @@ playerFramesBoomerang = unsafePerformIO $ return $ generatePlayerFrames playerBo
 playerFramesEspada :: Array.Array (Direction, AnimType, Int) Picture
 playerFramesEspada = unsafePerformIO $ return $ generatePlayerFrames playerEspadaSpriteSheet
 {-# NOINLINE playerFramesEspada #-}
+
+-----------------------------
+-- Enemigo
+-----------------------------
+-- spritesheet de los enemigos
+enemySpriteSheet :: Maybe (Image PixelRGBA8)
+enemySpriteSheet = unsafePerformIO $ do
+  img <- readImage "assets/entidades/enemy.png"
+  case img of
+    Left _ -> return Nothing
+    Right dyn -> return (Just (convertRGBA8 dyn))
+{-# NOINLINE enemySpriteSheet #-}
+
+-- Extraer frame específico del enemigo
+extractEnemyFrame :: Int -> Int -> Int -> Int -> Maybe (Image PixelRGBA8)
+extractEnemyFrame col row w h = do
+  sheet <- enemySpriteSheet
+  let sx = col * w
+      sy = row * h
+  if sx + w > imageWidth sheet || sy + h > imageHeight sheet
+    then Nothing
+    else Just $ generateImage (\px py -> pixelAt sheet (sx + px) (sy + py)) w h
+
+-- Array de frames de enemigos (Ground type, 2 frames)
+enemyFrames :: Array.Array Int Picture
+enemyFrames = unsafePerformIO $ do
+  let w = 32
+      h = 32
+      
+      extract col row =
+        fromMaybe Blank (fromImageRGBA8 <$> extractEnemyFrame col row w h)
+      
+      -- Frame 0: posición (0, 0)
+      -- Frame 1: posición (32, 0) = columna 1
+      frames = [extract 0 0, extract 1 0]
+      
+  return (Array.array (0, 1) [(0, frames !! 0), (1, frames !! 1)])
+{-# NOINLINE enemyFrames #-}

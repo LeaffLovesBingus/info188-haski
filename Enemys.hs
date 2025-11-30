@@ -256,7 +256,9 @@ createEnemy eid hp pos etype spd rad = EnemyState {
     enemy_type = etype,
     velocity = (0, 0),
     speed = spd,
-    radius = rad
+    radius = rad,
+    enemyFrame = 0,
+    enemyAnimTime = 0.0
 }
 
 -- Crea un enemigo con valores completamente por defecto
@@ -370,3 +372,24 @@ pushEnemiesAwayFromPlayer playerPos playerRadius = modify $ M.map pushAway
                     
                 in enemy { position = newPos }
             else enemy
+
+--- ANIMACION ---
+-- actualizar animación de TODOS los enemigos
+updateEnemyAnimations :: Float -> State GameState ()
+updateEnemyAnimations dt = do
+    gs <- get
+    let currentEnemies = enemies gs
+        updatedEnemies = M.map (updateAnim dt) currentEnemies
+    put gs { enemies = updatedEnemies }
+  where
+    updateAnim :: Float -> EnemyState -> EnemyState
+    updateAnim dt enemy =
+        let newAnimTime = enemyAnimTime enemy + dt
+            (newFrame, finalAnimTime) = 
+                if newAnimTime >= enemyAnimationSpeed
+                then ((enemyFrame enemy + 1) `mod` 2, newAnimTime - enemyAnimationSpeed)
+                else (enemyFrame enemy, newAnimTime)
+        in enemy { 
+            enemyFrame = newFrame,
+            enemyAnimTime = finalAnimTime
+        }

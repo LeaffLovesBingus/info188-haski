@@ -156,12 +156,13 @@ data EnemyState = EnemyState{
     enemy_type:: EnemyType,
     velocity:: Velocity,
     speed :: Float,
-    radius :: Float
+    radius :: Float,
+    enemyFrame :: Int, -- Frame actual (0 o 1)
+    enemyAnimTime :: Float -- tiempo de animacion
 } deriving (Show)
 
 -- estado global que contiene un map de enemigos
 type Enemies = Map.Map EnemyID EnemyState
--- Constantes
 
 ------------------- PANTALLA -------------------
 screenWidth :: Int
@@ -334,6 +335,9 @@ itemName Velocidad = "Pocion de velocidad"
 itemName Stamina = "Pocion de stamina"
 itemName Fuerza = "Pocion de fuerza"
 
--- daño del enemigo
+-- ENEMIGO
 dmgFromEnemy:: Int
 dmgFromEnemy = 10
+
+enemyAnimationSpeed :: Float
+enemyAnimationSpeed = 0.3  -- Cambia de frame cada 0.3 segundos

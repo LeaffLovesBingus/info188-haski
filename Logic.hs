@@ -298,6 +298,7 @@ updateGame dt = do
 
             Enemys.updateEnemyTracking dt
             Enemys.updateEnemyMovementAll dt
+            Enemys.updateEnemyAnimations dt
             checkEnemyPlayerCollisions
             Enemys.pushEnemiesFromPlayer
             Enemys.resolveAllEnemyCollisions
