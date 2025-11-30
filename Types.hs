@@ -65,7 +65,8 @@ data SwordSlash = SwordSlash {
     slashAngle :: Float,
     slashFrame :: Int,
     slashTimer :: Float,
-    slashActive :: Bool
+    slashActive :: Bool,
+    slashHitEnemies :: [EnemyID]
 } deriving (Show, Eq)
 
 -- Jugador
@@ -207,7 +208,7 @@ projectileLifetime :: Float
 projectileLifetime = 1.5
 
 arrowDamage :: Float
-arrowDamage = 35.0
+arrowDamage = 50.0
 
 cooldownBallesta :: Float
 cooldownBallesta = 0.8
@@ -220,7 +221,7 @@ cooldownBarHeight = 4.0
 
 -- Boomerang
 boomerangDamage :: Float
-boomerangDamage = 20.0
+boomerangDamage = 15.0
 
 boomerangSpeed :: Float         -- Velocidad de tiro del boomerang
 boomerangSpeed = 800.0          
@@ -239,7 +240,10 @@ boomerangCatchRadius = 20.0
 
 -- Espada
 swordDamage :: Float
-swordDamage = 30
+swordDamage = 50.0
+
+swordSlashRadius :: Float
+swordSlashRadius = 70.0
 
 slashAnimationDuration :: Float
 slashAnimationDuration = 0.2

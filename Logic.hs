@@ -868,7 +868,8 @@ createSwordSlash = do
             slashAngle = angleDeg,
             slashFrame = 0,
             slashTimer = slashAnimationDuration,
-            slashActive = True
+            slashActive = True,
+            slashHitEnemies = []
         }
     
     put gs { swordSlash = Just newSlash }
@@ -1226,9 +1227,16 @@ updateBoomerang dt = do
                 newBy = by + bvy * dt
                 newDist = boomerangDistanceTraveled b + sqrt ((bvx * dt) ^ 2 + (bvy * dt) ^ 2)
 
-                -- Comprobar si el boomerang chocó con algo del mundo O con un objeto destructible
+                -- Verificar colisión con enemigos
+                enemyList = Map.elems (enemies gs)
+                collidesWithEnemy = boomerangCollidesWithEnemy (newBx, newBy) enemyList
+
+                -- Verificar colisión con el ambiente
                 maybeHitObj = findHitObject (newBx, newBy) (destructibleObjects gs)
-                collided = positionCollidesWithWorld gs (newBx, newBy) || maybeHitObj /= Nothing
+                collidedWithWorld = positionCollidesWithWorld gs (newBx, newBy) || maybeHitObj /= Nothing
+                
+                -- Combinar todas las colisiones
+                collided = collidedWithWorld || collidesWithEnemy
 
                 dxToPlayer = px - newBx
                 dyToPlayer = py - newBy
@@ -1529,16 +1537,19 @@ checkSwordEnemyCollisions = do
         Just slash -> when (slashActive slash) $ do
             let p = player gs
                 (sx, sy) = slashPos slash
-                slashRadius = 45.0  -- Radio del hitbox de la espada
+                slashRadius = swordSlashRadius  -- Radio del hitbox de la espada
                 damage = round $ calculateDamage swordDamage p
                 
                 enemyList = Map.elems (enemies gs)
+                alreadyHit = slashHitEnemies slash
                 
                 -- Encontrar enemigos golpeados
                 hitEnemies = filter (\e -> 
                     let (ex, ey) = position e
                         dist = sqrt ((sx - ex)^2 + (sy - ey)^2)
-                    in dist <= slashRadius + radius e
+                        isInRange = dist <= slashRadius + radius e
+                        notHitYet = enemy_id e `notElem` alreadyHit -- Revisa a los enemigos que no han sido golpeados
+                    in isInRange && notHitYet
                     ) enemyList
                 
                 -- Aplicar daño a cada enemigo
@@ -1548,8 +1559,12 @@ checkSwordEnemyCollisions = do
                        then Map.delete (enemy_id e) m
                        else Map.insert (enemy_id e) (e { health = newHealth }) m
                     ) (enemies gs) hitEnemies
+
+                -- Actualizar lista de enemigos golpeados
+                newHitList = alreadyHit ++ map enemy_id hitEnemies
+                updatedSlash = slash { slashHitEnemies = newHitList }
             
-            put gs { enemies = updatedEnemies }
+            put gs { enemies = updatedEnemies, swordSlash = Just updatedSlash }
 
 -- Verificar colisiones de proyectiles (flechas) con enemigos
 checkProjectileEnemyCollisions :: State GameState ()
@@ -1621,6 +1636,16 @@ checkBoomerangEnemyCollisions = do
             
             put gs { enemies = updatedEnemies }
 
+
+-- Función auxiliar para verificar colisión boomerang-enemigo
+boomerangCollidesWithEnemy :: (Float, Float) -> [EnemyState] -> Bool
+boomerangCollidesWithEnemy (bx, by) enemyList =
+    let boomerangRadius = 15.0
+        checkEnemy enemy =
+            let (ex, ey) = position enemy
+                dist = sqrt ((bx - ex)^2 + (by - ey)^2)
+            in dist <= boomerangRadius + radius enemy
+    in any checkEnemy enemyList
 
 ------------------- RESPAWN DE ENEMIGOS -------------------
 
