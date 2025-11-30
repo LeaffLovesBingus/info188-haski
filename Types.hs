@@ -77,6 +77,7 @@ data Player = Player {
     playerSelectedSlot :: Int,
     playerItemFlashTimer :: Float,
     playerItemFlashState :: FlashState,
+    playerSpeedBoostTimer :: Float,
     playerIsTakingDamage :: Bool,
     playerDamageAnimTimer :: Float,
     playerDamageDirection :: DamageDirection,
@@ -105,7 +106,7 @@ data InputState = InputState {
     keyD :: Bool,           -- Derecha
     keyShift :: Bool,           -- Sprint
     keyE :: Bool,           -- Recoger item
-    keyQ :: Bool,           -- Tirar item
+    keyF :: Bool,           -- Tirar item
     key1 :: Bool,           -- Slot 1
     key2 :: Bool,           -- Slot 2
     key3 :: Bool,           -- Slot 3

@@ -7,6 +7,7 @@ import Control.Monad (when)
 import qualified Data.Map.Strict as Map
 import MapLoader (CollisionShape(..))
 import Data.Bits ((.&.))
+import Pociones
 import System.IO.Unsafe (unsafePerformIO)
 import System.Exit (exitSuccess)
 
@@ -29,6 +30,7 @@ initialGameState tiles layers collisions = GameState {
         playerSelectedSlot = 0,
         playerItemFlashTimer = 0.0,
         playerItemFlashState = NoFlash,
+        playerSpeedBoostTimer = 0.0,
         playerIsTakingDamage = False,
         playerDamageAnimTimer = 0.0,
         playerDamageDirection = DamageFromFront,
@@ -56,7 +58,7 @@ initialGameState tiles layers collisions = GameState {
         keyD = False,
         keyShift = False,
         keyE = False,
-        keyQ = False,
+        keyF = False,
         key1 = False,
         key2 = False,
         key3 = False,
@@ -192,8 +194,8 @@ handlePlayingInput event = do
                 EventKey (Char 'd') Up _ _ -> put gs { inputState = inp { keyD = False } }
                 EventKey (Char 'e') Down _ _ -> put gs { inputState = inp { keyE = True } }
                 EventKey (Char 'e') Up _ _ -> put gs { inputState = inp { keyE = False } }
-                EventKey (Char 'q') Down _ _ -> put gs { inputState = inp { keyQ = True } }
-                EventKey (Char 'q') Up _ _ -> put gs { inputState = inp { keyQ = False } }
+                EventKey (Char 'f') Down _ _ -> put gs { inputState = inp { keyF = True } }
+                EventKey (Char 'f') Up _ _ -> put gs { inputState = inp { keyF = False } }
                 EventKey (Char 'W') Down _ _ -> put gs { inputState = inp { keyW = True } }
                 EventKey (Char 'W') Up _ _ -> put gs { inputState = inp { keyW = False } }
                 EventKey (Char 'S') Down _ _ -> put gs { inputState = inp { keyS = True } }
@@ -204,8 +206,8 @@ handlePlayingInput event = do
                 EventKey (Char 'D') Up _ _ -> put gs { inputState = inp { keyD = False } }
                 EventKey (Char 'E') Down _ _ -> put gs { inputState = inp { keyE = True } }
                 EventKey (Char 'E') Up _ _ -> put gs { inputState = inp { keyE = False } }
-                EventKey (Char 'Q') Down _ _ -> put gs { inputState = inp { keyQ = True } }
-                EventKey (Char 'Q') Up _ _ -> put gs { inputState = inp { keyQ = False } }
+                EventKey (Char 'F') Down _ _ -> put gs { inputState = inp { keyF = True } }
+                EventKey (Char 'F') Up _ _ -> put gs { inputState = inp { keyF = False } }
                 EventKey (Char '1') Down _ _ -> put gs { inputState = inp { key1 = True } }
                 EventKey (Char '1') Up _ _ -> put gs { inputState = inp { key1 = False } }
                 EventKey (Char '2') Down _ _ -> put gs { inputState = inp { key2 = True } }
@@ -265,6 +267,8 @@ updateGame dt = do
             updateInvulnerability dt
             handleSlotSelection         -- Selección de slots con teclado
             handleItemDrop              -- Soltar items con Q
+            handlePotionUse
+            updateSpeedTimer dt
             updatePlayerMovement dt
             updateCamera dt
             updatePlayerCooldowns dt
@@ -277,6 +281,15 @@ updateGame dt = do
             resetMouseClick
         _ -> return ()
 
+updateSpeedTimer :: Float -> State GameState ()
+updateSpeedTimer dt = do
+    gs <- get
+    let p = player gs
+        newTimer = max 0.0 (playerSpeedBoostTimer p - dt)
+    
+    when (newTimer /= playerSpeedBoostTimer p) $ do
+        let newPlayer = p { playerSpeedBoostTimer = newTimer }
+        put gs { player = newPlayer }
 
 -- Resetea el clic del mouse
 resetMouseClick :: State GameState ()
@@ -471,8 +484,9 @@ updatePlayerMovement dt = do
         else do
             let inp = inputState gs
                 (x, y) = playerPos p
-                speed = if keyShift inp then playerSprintSpeed else playerBaseSpeed
-                
+                base = if keyShift inp then playerSprintSpeed else playerBaseSpeed
+                speed = if playerSpeedBoostTimer p > 0 then base + 200 else base
+        
                 dx = (if keyD inp then 1 else 0) - (if keyA inp then 1 else 0)
                 dy = (if keyW inp then 1 else 0) - (if keyS inp then 1 else 0)
                 
@@ -856,13 +870,13 @@ handleItemDrop = do
     let inp = inputState gs
         p = player gs
         
-    when (keyQ inp) $ do
+    when (keyF inp) $ do
         let currentSlot = playerSelectedSlot p
             inventory = playerInventory p
             currentItem = inventory !! currentSlot
             
         case currentItem of
-            Nothing -> put gs { inputState = inp { keyQ = False } }
+            Nothing -> put gs { inputState = inp { keyF = False } }
             Just iType -> do
                 let (px, py) = playerPos p
                     droppedItem = WorldItem {
@@ -890,7 +904,7 @@ handleItemDrop = do
                 put gs { 
                     player = newPlayer, 
                     worldItems = newItems,
-                    inputState = inp { keyQ = False }
+                    inputState = inp { keyF = False }
                 }
   where
     updateInventoryAt :: Int -> Maybe ItemType -> [Maybe ItemType] -> [Maybe ItemType]
@@ -1202,7 +1216,7 @@ resetInputState inp = inp
     , keyD = False
     , keyShift = False
     , keyE = False
-    , keyQ = False
+    , keyF = False
     , key1 = False
     , key2 = False
     , key3 = False
