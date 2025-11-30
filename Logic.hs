@@ -367,6 +367,7 @@ updateGame dt = do
                 updateBoomerang dt
                 updateProjectiles dt
                 updateSwordSlash dt
+                checkSwordObjectCollisions
                 checkProjectileCollisions dt
                 checkSwordEnemyCollisions   -- Daño de espada a enemigos
                 checkProjectileEnemyCollisions  -- Daño de proyectiles a enemigos
@@ -1475,6 +1476,49 @@ updateStrengthTimer dt = do
     when (newTimer /= playerStrengthBoostTimer p) $ do
         let newPlayer = p { playerStrengthBoostTimer = newTimer }
         put gs { player = newPlayer }
+
+checkSwordObjectCollisions :: State GameState ()
+checkSwordObjectCollisions = do
+    gs <- get
+    case swordSlash gs of
+        Nothing -> return ()
+        Just slash -> when (slashActive slash) $ do
+            let p = player gs
+                (sx, sy) = slashPos slash
+                slashRadius = 45.0 
+                damage = calculateDamage swordDamage p
+                
+                objs = destructibleObjects gs
+                
+                isHit obj = 
+                    let (ox, oy) = destPos obj
+                        objRadius = 20.0 
+                        dist = sqrt ((sx - ox) ** 2 + (sy - oy) ** 2)
+                    in dist <= slashRadius + objRadius
+                
+                applyDamage obj = 
+                    if isHit obj
+                    then obj { destHealth = destHealth obj - damage }
+                    else obj
+                
+                objsAfterDamage = map applyDamage objs
+                aliveObjs = filter (\o -> destHealth o > 0) objsAfterDamage
+                destroyedObjs = filter (\o -> destHealth o <= 0) objsAfterDamage
+            
+            -- Si hubo objetos destruidos, procesar loot y mapa
+            when (not (null destroyedObjs)) $ do
+                let lootItems = [createLootItem obj | obj <- destroyedObjs]
+                    updatedLayers = foldl removeTileFromLayers (allLayers gs) destroyedObjs
+                
+                put gs {
+                    destructibleObjects = aliveObjs,
+                    worldItems = worldItems gs ++ lootItems,
+                    allLayers = updatedLayers
+                }
+            
+            -- Si no se rompió nada
+            when (null destroyedObjs && any isHit objs) $ do
+                put gs { destructibleObjects = aliveObjs }
 
 -- Verificar colisiones de espada con enemigos
 checkSwordEnemyCollisions :: State GameState ()
