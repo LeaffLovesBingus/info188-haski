@@ -12,7 +12,7 @@ Un juego de aventura 2D desarrollado en **Haskell** usando la librería Gloss. P
 
 ## Descripcion
 
-Haski es un juego top-down donde controlas a un personaje en un mundo con colisiones, items y objetos destructibles. El juego implementa la monada `State` para manejar el estado del juego de forma funcional.
+Haski es un juego top-down de supervivencia donde controlas a un personaje en un mundo con colisiones, items y objetos destructibles que revelan pociones mágicas. El juego implementa la monada `State` para manejar el estado del juego de forma funcional.
 
 ## Objetivo del Juego
 
@@ -33,7 +33,7 @@ Haski es un juego top-down donde controlas a un personaje en un mundo con colisi
 - **Inventario** con 5 slots para items
 - **Armas**: Ballesta, Boomerang y Espada
 - **Items consumibles**: Curacion, Velocidad, Fuerza
-- **Objetos destructibles** (cajas, vasijas) que sueltan items
+- **Objetos destructibles** (cajas, vasijas) que sueltan items (están marcados con bordes dorados)
 - **HUD** con barra de vida, inventario y temporizador
 
 ## Controles
