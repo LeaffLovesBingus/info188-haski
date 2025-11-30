@@ -10,6 +10,7 @@ import Data.Bits ((.&.))
 import Pociones
 import qualified Enemys
 import System.IO.Unsafe (unsafePerformIO)
+import qualified Audio
 
 -- Estado inicial
 initialGameState :: [[Int]] -> [[[Int]]] -> [[Bool]] -> GameState
@@ -77,7 +78,9 @@ initialGameState tiles layers collisions = GameState {
     ],
     enemyRespawnTimer = 0.0,
     nextEnemyId = 3,
-    exitRequested = False
+    exitRequested = False,
+    victoryTriggered = False,
+    defeatTriggered = False
 }
 
 
@@ -405,11 +408,11 @@ checkVictoryDefeat = do
     
     -- Derrota: vida <= 0
     when (currentHealth <= 0) $ do
-        put gs { currentScene = Defeat }
+        put gs { currentScene = Defeat, defeatTriggered = True }
     
     -- Victoria: temporizador llega a 0
     when (timer <= 0 && currentHealth > 0) $ do
-        put gs { currentScene = Victory }
+        put gs { currentScene = Victory, victoryTriggered = True }
 
 updateSpeedTimer :: Float -> State GameState ()
 updateSpeedTimer dt = do

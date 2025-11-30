@@ -13,6 +13,11 @@ import System.Exit (exitSuccess)
 
 main :: IO ()
 main = do
+    -- Inicializar SDL y SDL.Mixer
+    SDL.initialize [SDL.InitAudio]
+    Mix.openAudio Mix.defaultAudio 256
+    loadAllAudio
+
     -- Cargar mapa
     (tilesetsInfo, tileLayersLoaded, collisions) <- loadMapFromJSON "assets/map/mapa.JSON"
     
@@ -57,6 +62,10 @@ main = do
         handleEventIO
         updateGameWrapperIO
 
+    Mix.closeAudio
+    Mix.quit
+    SDL.quit
+
 handleEventIO :: Event -> GameState -> IO GameState
 handleEventIO event gs = do
     let newState = execState (handleInputEvent event) gs
@@ -66,7 +75,20 @@ handleEventIO event gs = do
         else return newState
 
 updateGameWrapperIO :: Float -> GameState -> IO GameState
-updateGameWrapperIO dt gs = return $ execState (updateGame dt) gs
+updateGameWrapperIO dt gs = do
+    let gs' = execState (updateGame dt) gs
+
+    -- Si derrota recién ocurrió
+    when (defeatTriggered gs' && not (defeatTriggered gs)) $ do
+        stopMusic
+        playMusicLoop defeatTheme
+
+    -- Si victoria recién ocurrió
+    when (victoryTriggered gs' && not (victoryTriggered gs)) $ do
+        stopMusic
+        playMusicLoop victoryTheme
+
+    return gs'
 
 -- Verificar si el juego debe cerrarse
 shouldExit :: GameState -> Bool

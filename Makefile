@@ -20,7 +20,8 @@ PACKAGES = -package gloss \
            -package array \
            -package scientific \
            -package mtl\
-           -package sdl2-mixer
+           -package sdl2-mixer\
+           -package sdl2
 
 # Flags de compilación
 GHC_FLAGS = -odir $(BIN_DIR) -hidir $(BIN_DIR) -o $(BIN_DIR)/$(EXEC)
